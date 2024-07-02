@@ -2,44 +2,49 @@ import rosbag
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+from tensorflow import keras
 from sklearn.svm import SVR
 from sklearn.model_selection import train_test_split
-from tensorflow.keras import layers, models, Sequential
-from tensorflow.keras.layers import Conv2D, BatchNormalization, MaxPooling2D, Dropout, UpSampling2D
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import ReduceLROnPlateau
+from keras import layers, models, Sequential, Input
+from keras.layers import Conv2D, BatchNormalization, MaxPooling2D, Dropout, UpSampling2D
+from keras.layers import Dense
+from keras.optimizers import Adam
+from keras.callbacks import ReduceLROnPlateau
 
-# Function to convert ROS bag to CSV and extract both point cloud and lidar point data
-def rosbag_to_csv(bag_file, csv_file, point_cloud_topic, lidar_topic):
+def extract_data_from_bag(bag_file):
     bag = rosbag.Bag(bag_file)
     point_cloud_data = []
-    lidar_point_data = []
+    lidar_transform_data = []
 
-    for topic, msg, t in bag.read_messages(topics=[point_cloud_topic, lidar_topic]):
-        if topic == point_cloud_topic:
-            points = np.array([[point.x, point.y, point.z] for point in msg.points])
-            point_cloud_data.append(points.flatten())
-        elif topic == lidar_topic:
-            # Assuming LiDAR points are structured similarly
-            lidar_points = np.array([msg.x, msg.y, msg.z])
-            lidar_point_data.append(lidar_points.flatten())
+    for topic, msg, t in bag.read_messages():
+        if hasattr(msg, 'frame_id') and msg.frame_id == "map":
+            if hasattr(msg, 'points'):
+                for point in msg.points:
+                    point_cloud_data.append([point.x, point.y, point.z])
+        elif '/tf_static' in topic:  # Processing LiDAR transformation data
+            for transform in msg.transforms:
+                lidar_transform_data.append([
+                    transform.transform.translation.x,
+                    transform.transform.translation.y,
+                    transform.transform.translation.z,
+                    transform.transform.rotation.x,
+                    transform.transform.rotation.y,
+                    transform.transform.rotation.z,
+                    transform.transform.rotation.w
+                ])
 
-    point_cloud_df = pd.DataFrame(point_cloud_data)
-    lidar_point_df = pd.DataFrame(lidar_point_data, columns=['lidar_x', 'lidar_y', 'lidar_z'])
-    combined_df = pd.concat([point_cloud_df, lidar_point_df], axis=1)
-    combined_df.to_csv(csv_file, index=False)
     bag.close()
-    return combined_df
-
+    return pd.DataFrame(point_cloud_data, columns=['x', 'y', 'z']), pd.DataFrame(lidar_transform_data, columns=['trans_x', 'trans_y', 'trans_z', 'rot_x', 'rot_y', 'rot_z', 'rot_w'])
 # Function to print sample data
 def print_sample_data(data, num_samples=5):
     print("Sample Data:")
     print(data.head(num_samples))
 
+"""
 # Define the CNN architecture
-def build_cnn_model(input_shape):
+def build_cnn_model(num_points):
     model = Sequential([
-        Conv2D(32, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
+        Conv2D(32, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal', num_points=num_points),
         BatchNormalization(),
         MaxPooling2D((2, 2)),
         Conv2D(64, (3, 3), activation='relu', padding='same', kernel_initializer='he_normal'),
@@ -56,21 +61,43 @@ def build_cnn_model(input_shape):
         Conv2D(1, (3, 3), activation='sigmoid', padding='same')
     ])
     return model
+"""
+
+def create_pointnet_model(num_points=1024):
+    input_points = Input(shape=(num_points, 3))
+    x = Dense(64, activation='relu')(input_points)
+    x = Dense(128, activation='relu')(x)
+    x = Dense(1024, activation='relu')(x)
+    x = Dense(3, activation='sigmoid')(x)  # Output dimensions adjusted for your specific use case
+    model = models.Model(inputs=input_points, outputs=x)
+    return model
+
 
 # Training and Prediction Logic
-def train_and_predict(bag_file, csv_file, point_cloud_topic, lidar_topic, input_shape):
-    # Convert rosbag to CSV and load data
-    data = rosbag_to_csv(bag_file, csv_file, point_cloud_topic, lidar_topic)
-    print_sample_data(data)  # Print sample data for inspection
+def train_and_predict(bag_file, num_points):
+    # Extract data from bag
+    point_cloud_df, lidar_df = extract_data_from_bag(bag_file)
+    #print_sample_data(point_cloud_df)
+    #print_sample_data(lidar_df)
 
-    features = data.iloc[:, :-3].values  # all columns except lidar points
-    labels = data[['lidar_x', 'lidar_y', 'lidar_z']].values  # lidar points
+    # Check if there is any data to process
+    if point_cloud_df.empty or lidar_df.empty:
+        print("No data available for training. Please check the ROS bag file.")
+        return None, None
+
+    # Ensure all data fits the model input shape
+    if len(point_cloud_df) < num_points:
+        print(f"Not enough points, only {len(point_cloud_df)} available.")
+        return None, None
+
+    # Prepare data for the model
+    X = np.array(point_cloud_df.sample(n=num_points))  # Randomly select 'num_points'
+    y = np.array(lidar_df.mean()).reshape(1, -1)  # Average the lidar data or choose another representation
 
     # Split data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, random_state=42)
-
+    X_train, X_test, y_train, y_test = train_test_split(X.reshape(1, num_points, 3), y, test_size=0.2, random_state=42)
     # Build and train the model
-    model = build_cnn_model(input_shape)
+    model = create_pointnet_model(num_points)
     optimizer = Adam(lr=0.0015)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.15, patience=5, min_lr=0.0001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
@@ -91,7 +118,7 @@ def train_and_predict(bag_file, csv_file, point_cloud_topic, lidar_topic, input_
     return predicted_lidar_points, y_test
 
 # Example usage
-input_shape = (img_size, img_size, 1)  # Adjust based on your actual data shape
-predicted_points, actual_points = train_and_predict('input.bag', 'output.csv', 'point_cloud_topic', 'lidar_topic', input_shape)
+num_points = 1024 # Adjust based on your actual data shape
+predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag', num_points)
 print("Predicted LiDAR Points:", predicted_points)
 print("Actual LiDAR Points:", actual_points)
