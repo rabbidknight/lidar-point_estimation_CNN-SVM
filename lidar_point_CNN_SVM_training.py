@@ -6,8 +6,10 @@ from tensorflow import keras
 from sklearn.svm import SVR
 from sklearn.model_selection import train_test_split
 from keras import layers, models, Sequential, Input
-from keras.layers import Conv2D, BatchNormalization, MaxPooling2D, Dropout, UpSampling2D
-from keras.layers import Dense
+#for pointnet
+from keras.layers import Conv1D, BatchNormalization, MaxPooling1D, Dropout, UpSampling1D, Dense
+#for CNN
+#from keras.layers import Conv2D, BatchNormalization, MaxPooling2D, Dropout, Sampling2D
 from keras.optimizers import Adam
 from keras.callbacks import ReduceLROnPlateau
 
@@ -17,11 +19,11 @@ def extract_data_from_bag(bag_file):
     lidar_transform_data = []
 
     for topic, msg, t in bag.read_messages():
-        if hasattr(msg, 'frame_id') and msg.frame_id == "map":
-            if hasattr(msg, 'points'):
+        if "/map" in topic:
+            if hasattr(msg, "points"):  # Check if 'points' attribute is present
                 for point in msg.points:
                     point_cloud_data.append([point.x, point.y, point.z])
-        elif '/tf_static' in topic:  # Processing LiDAR transformation data
+        elif "/tf_static" in topic:
             for transform in msg.transforms:
                 lidar_transform_data.append([
                     transform.transform.translation.x,
@@ -35,6 +37,8 @@ def extract_data_from_bag(bag_file):
 
     bag.close()
     return pd.DataFrame(point_cloud_data, columns=['x', 'y', 'z']), pd.DataFrame(lidar_transform_data, columns=['trans_x', 'trans_y', 'trans_z', 'rot_x', 'rot_y', 'rot_z', 'rot_w'])
+
+
 # Function to print sample data
 def print_sample_data(data, num_samples=5):
     print("Sample Data:")
@@ -63,15 +67,25 @@ def build_cnn_model(num_points):
     return model
 """
 
-def create_pointnet_model(num_points=1024):
-    input_points = Input(shape=(num_points, 3))
-    x = Dense(64, activation='relu')(input_points)
-    x = Dense(128, activation='relu')(x)
-    x = Dense(1024, activation='relu')(x)
-    x = Dense(3, activation='sigmoid')(x)  # Output dimensions adjusted for your specific use case
-    model = models.Model(inputs=input_points, outputs=x)
+def create_pointnet_model(num_points):
+    model = Sequential([
+        Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=(num_points, 3)),
+        BatchNormalization(),
+        MaxPooling1D(2),
+        Conv1D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal'),
+        BatchNormalization(),
+        MaxPooling1D(2),
+        Dropout(0.25),
+        Conv1D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal'),
+        BatchNormalization(),
+        Dropout(0.25),
+        UpSampling1D(2),
+        Conv1D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal'),
+        BatchNormalization(),
+        UpSampling1D(2),
+        Conv1D(1, 3, activation='sigmoid', padding='same')  # Output layer; adjust depending on the output shape needed
+    ])
     return model
-
 
 # Training and Prediction Logic
 def train_and_predict(bag_file, num_points):
