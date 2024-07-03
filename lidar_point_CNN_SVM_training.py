@@ -10,20 +10,21 @@ from keras.optimizers import Adam
 from keras.callbacks import ReduceLROnPlateau
 from sklearn.svm import SVR
 from sklearn.model_selection import train_test_split
-
+from keras.preprocessing.sequence import pad_sequences
 
 def extract_data_from_bag(bag_file):
     bag = rosbag.Bag(bag_file)
     point_cloud_data = []
     lidar_transform_data = []
 
+    point_cloud_times = []
+    lidar_times = []
+
     for topic, msg, t in bag.read_messages():
         if topic == "/lidar_localizer/aligned_cloud":
-            num_points = msg.width
-            for i in range(num_points):
-                offset = i * msg.point_step
-                x, y, z = struct.unpack_from('<fff', msg.data, offset)  # Ensuring correct endianness and format
-                point_cloud_data.append([x, y, z])
+            data_array = np.frombuffer(msg.data, dtype=np.uint8)
+            point_cloud_data.append(data_array)
+            point_cloud_times.append(msg.header.stamp.to_nsec())
         elif topic == "/lidar_localizer/lidar_pose":
             position = msg.pose.pose.position
             orientation = msg.pose.pose.orientation
@@ -31,9 +32,23 @@ def extract_data_from_bag(bag_file):
                 position.x, position.y, position.z,
                 orientation.x, orientation.y, orientation.z, orientation.w
             ])
+            lidar_times.append(msg.header.stamp.to_nsec())
 
     bag.close()
-    return pd.DataFrame(point_cloud_data, columns=['x', 'y', 'z']), pd.DataFrame(lidar_transform_data, columns=['pos_x', 'pos_y', 'pos_z', 'ori_x', 'ori_y', 'ori_z', 'ori_w'])
+
+    # Pad point cloud data to ensure uniform length
+    max_length = max(len(x) for x in point_cloud_data)
+    padded_point_clouds = pad_sequences(point_cloud_data, maxlen=max_length, dtype='float32', padding='post')
+
+    # Synchronize data based on closest timestamps
+    synced_point_clouds = []
+    synced_poses = []
+    for i, pc_time in enumerate(point_cloud_times):
+        closest_idx = np.argmin([abs(pc_time - lt) for lt in lidar_times])
+        synced_point_clouds.append(padded_point_clouds[i])
+        synced_poses.append(lidar_transform_data[closest_idx])
+
+    return np.array(synced_point_clouds), pd.DataFrame(synced_poses, columns=['pos_x', 'pos_y', 'pos_z', 'ori_x', 'ori_y', 'ori_z', 'ori_w'])
 
 
 def create_pointnet_model(num_points):
@@ -56,6 +71,7 @@ def create_pointnet_model(num_points):
     ])
     return model
 
+"""
 # Data preparation logic for pointnet model
 def prepare_data(point_cloud_df, num_points):
     # This assumes each point is a separate sample
@@ -69,26 +85,26 @@ def prepare_data(point_cloud_df, num_points):
     y = np.array([sampled_df['x'].mean(), sampled_df['y'].mean(), sampled_df['z'].mean()])  # example target
 
     return X, y
+"""
 
+def train_and_predict(bag_file):
+    #point_cloud_df, lidar_df = extract_data_from_bag(bag_file)
+    point_clouds, poses = extract_data_from_bag(bag_file)
 
-def train_and_predict(bag_file, num_points):
-    point_cloud_df, lidar_df = extract_data_from_bag(bag_file)
+    #X, y = prepare_data(point_cloud_df, num_points)
 
-    X, y = prepare_data(point_cloud_df, num_points)
-
-    if point_cloud_df.empty or lidar_df.empty:
+    # Check if the arrays are empty. Using len() function for numpy arrays.
+    if len(point_clouds) == 0 or len(poses) == 0:
         print("No data available for training. Please check the ROS bag file.")
         return None, None
+    
+    #y = y.reshape(1, -1)
 
-    if len(point_cloud_df) < num_points:
-        print(f"Not enough points, only {len(point_cloud_df)} available.")
-        return None, None
+    #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(point_clouds, poses, test_size=0.2, random_state=42)
 
-    y = y.reshape(1, -1)
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    model = create_pointnet_model(num_points)
+    input_shape = (X_train.shape[1], 1)  # Assuming data is 1D
+    model = create_pointnet_model(input_shape)
     optimizer = Adam(lr=0.0015)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.15, patience=5, min_lr=0.0001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
@@ -105,8 +121,7 @@ def train_and_predict(bag_file, num_points):
 
     return predicted_lidar_points, y_test.ravel()
 
-num_points = 1024  # Adjust based on your data
-predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag', num_points)
+predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
 print("Predicted LiDAR Points:", predicted_points)
 print("Actual LiDAR Points:", actual_points)
 
