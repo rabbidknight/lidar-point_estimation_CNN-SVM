@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from keras import Sequential
-from keras.layers import Conv1D, BatchNormalization, MaxPooling1D, Dropout, UpSampling1D, Dense
+from keras.layers import Conv1D, BatchNormalization, MaxPooling1D, Dropout, UpSampling1D, Dense, Flatten
 from keras.optimizers import Adam
 from keras.callbacks import ReduceLROnPlateau
 from sklearn.svm import SVR
@@ -51,9 +51,9 @@ def extract_data_from_bag(bag_file):
     return np.array(synced_point_clouds), pd.DataFrame(synced_poses, columns=['pos_x', 'pos_y', 'pos_z', 'ori_x', 'ori_y', 'ori_z', 'ori_w'])
 
 
-def create_pointnet_model(num_points):
+def create_pointnet_model(input_shape):
     model = Sequential([
-        Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=(num_points, 3)),
+        Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
         MaxPooling1D(2),
         Conv1D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal'),
@@ -67,7 +67,9 @@ def create_pointnet_model(num_points):
         Conv1D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal'),
         BatchNormalization(),
         UpSampling1D(2),
-        Conv1D(1, 3, activation='sigmoid', padding='same')
+        Flatten(),  # Flatten the output to make it a 1D vector
+        Dense(128, activation='relu'),  # Add a Dense layer to further process features
+        Dense(7)  # Final layer with 7 units, one for each target variable
     ])
     return model
 
