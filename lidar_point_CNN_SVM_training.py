@@ -75,7 +75,7 @@ def extract_data_from_bag(bag_file):
 
 def create_pointnet_model(input_shape):
     model = Sequential([
-        Conv1D(16, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
+        Conv1D(, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
         MaxPooling1D(2),
         Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
@@ -83,6 +83,8 @@ def create_pointnet_model(input_shape):
         Dropout(0.25),
         Conv1D(16, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
+        #Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
+        #BatchNormalization(),
         Flatten(),  # Flatten the output to make it a 1D vector
         Dense(7)  # Final layer with 7 units, one for each target variable
     ])
@@ -123,18 +125,31 @@ def train_and_predict(bag_file):
     input_shape = (X_train.shape[1], 1)  # Assuming data is 1D
     model = create_pointnet_model(input_shape)
     optimizer = Adam(lr=0.0015)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.15, patience=5, min_lr=0.0001)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.15, patience=1, min_lr=0.0001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
-    model.fit(X_train, y_train, epochs=10, batch_size=16, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
+    model.fit(X_train, y_train, epochs=20, batch_size=10, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
 
-    feature_model = tf.keras.models.Model(inputs=model.input, outputs=model.layers[-3].output)
-    train_features = feature_model.predict(X_train)
+    feature_model = tf.keras.models.Model(inputs=model.input, outputs=model.layers[-1].output)
+    train_features = feature_model.predict(X_test)
     test_features = feature_model.predict(X_test)
 
-    svm = SVR()
-    svm.fit(train_features, y_train.ravel())
 
-    predicted_lidar_points = svm.predict(test_features)
+    # Ensure y_train is a NumPy array and properly reshaped
+    if isinstance(y_train, pd.DataFrame):
+        y_train = y_train.values  # Convert to NumPy array as it's a DataFrame
+ 
+     # Ensure y_test is a NumPy array and properly reshaped
+    if isinstance(y_test, pd.DataFrame):
+        y_test = y_test.values  # Convert to NumPy array as it's a DataFrame
+ 
+
+    #train_features = train_features.ravel()
+    #test_features = test_features.ravel()
+
+    svm = SVR()
+    svm.fit(train_features.reshape(-1, 1), y_test.reshape(-1, 1))
+
+    predicted_lidar_points = svm.predict(test_features.reshape(-1, 1))
 
     return predicted_lidar_points, y_test.ravel()
 
