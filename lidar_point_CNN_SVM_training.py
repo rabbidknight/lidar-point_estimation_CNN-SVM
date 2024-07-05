@@ -20,11 +20,16 @@ def extract_data_from_bag(bag_file):
     point_cloud_times = []
     lidar_times = []
 
+    # Counters and diagnostics
+    num_point_clouds = 0
+    num_lidar_poses = 0
+
     for topic, msg, t in bag.read_messages():
         if topic == "/lidar_localizer/aligned_cloud":
             data_array = np.frombuffer(msg.data, dtype=np.uint8)
             point_cloud_data.append(data_array)
             point_cloud_times.append(msg.header.stamp.to_nsec())
+            num_point_clouds += 1
         elif topic == "/lidar_localizer/lidar_pose":
             position = msg.pose.pose.position
             orientation = msg.pose.pose.orientation
@@ -33,12 +38,29 @@ def extract_data_from_bag(bag_file):
                 orientation.x, orientation.y, orientation.z, orientation.w
             ])
             lidar_times.append(msg.header.stamp.to_nsec())
+            num_lidar_poses += 1
 
     bag.close()
 
+    # Data diagnostics
+    print("Number of point cloud entries read:", num_point_clouds)
+    print("Number of LiDAR pose entries read:", num_lidar_poses)
+    if point_cloud_data:
+        print("Number of input parameters in the first point cloud:", len(point_cloud_data[0]))
+        print("Data type of point cloud parameters:", point_cloud_data[0].dtype)
+    if lidar_transform_data:
+        print("Number of input parameters in first LiDAR pose:", len(lidar_transform_data[0]))
+        print("Data type of LiDAR pose parameters:", type(lidar_transform_data[0][0]))
+
     # Pad point cloud data to ensure uniform length
     max_length = max(len(x) for x in point_cloud_data)
-    padded_point_clouds = pad_sequences(point_cloud_data, maxlen=max_length, dtype='float32', padding='post')
+    padded_point_clouds = pad_sequences(point_cloud_data, maxlen=max_length, dtype='uint8', padding='post')
+
+    # Diagnostic print statements after padding
+    print("After padding:")
+    print("Shape of padded point cloud data:", padded_point_clouds.shape)
+    if padded_point_clouds.size > 0:
+        print("Sample data from the first padded point cloud entry:", padded_point_clouds[0][:10])  # show first 10 elements
 
     # Synchronize data based on closest timestamps
     synced_point_clouds = []
@@ -53,22 +75,15 @@ def extract_data_from_bag(bag_file):
 
 def create_pointnet_model(input_shape):
     model = Sequential([
+        Conv1D(16, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
+        BatchNormalization(),
+        MaxPooling1D(2),
         Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
-        MaxPooling1D(2),
-        Conv1D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal'),
-        BatchNormalization(),
-        MaxPooling1D(2),
         Dropout(0.25),
-        Conv1D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal'),
+        Conv1D(16, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
-        Dropout(0.25),
-        UpSampling1D(2),
-        Conv1D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal'),
-        BatchNormalization(),
-        UpSampling1D(2),
         Flatten(),  # Flatten the output to make it a 1D vector
-        Dense(128, activation='relu'),  # Add a Dense layer to further process features
         Dense(7)  # Final layer with 7 units, one for each target variable
     ])
     return model
@@ -110,9 +125,9 @@ def train_and_predict(bag_file):
     optimizer = Adam(lr=0.0015)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.15, patience=5, min_lr=0.0001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
-    model.fit(X_train, y_train, epochs=25, batch_size=32, validation_split=0.15, callbacks=[reduce_lr])
+    model.fit(X_train, y_train, epochs=10, batch_size=16, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
 
-    feature_model = tf.keras.models.Model(inputs=model.input, outputs=model.layers[-4].output)
+    feature_model = tf.keras.models.Model(inputs=model.input, outputs=model.layers[-3].output)
     train_features = feature_model.predict(X_train)
     test_features = feature_model.predict(X_test)
 
