@@ -10,6 +10,7 @@ from keras.optimizers import Adam
 from keras.callbacks import ReduceLROnPlateau
 from sklearn.svm import SVR
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import recall_score, precision_score, f1_score
 from keras.preprocessing.sequence import pad_sequences
 
 def extract_data_from_bag(bag_file):
@@ -75,16 +76,19 @@ def extract_data_from_bag(bag_file):
 
 def create_pointnet_model(input_shape):
     model = Sequential([
-        Conv1D(, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
+        Conv1D(16, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
         MaxPooling1D(2),
         Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
+        MaxPooling1D(2),
         Dropout(0.25),
-        Conv1D(16, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
+        Conv1D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
-        #Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
-        #BatchNormalization(),
+        Dropout(0.25),
+        Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
+        BatchNormalization(),
+        Conv1D(1, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         Flatten(),  # Flatten the output to make it a 1D vector
         Dense(7)  # Final layer with 7 units, one for each target variable
     ])
@@ -124,10 +128,10 @@ def train_and_predict(bag_file):
 
     input_shape = (X_train.shape[1], 1)  # Assuming data is 1D
     model = create_pointnet_model(input_shape)
-    optimizer = Adam(lr=0.0015)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.15, patience=1, min_lr=0.0001)
+    optimizer = Adam(learning_rate=0.0015)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.15, patience=3, min_lr=0.0001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
-    model.fit(X_train, y_train, epochs=20, batch_size=10, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
+    model.fit(X_train, y_train, epochs=20, batch_size=32, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
 
     feature_model = tf.keras.models.Model(inputs=model.input, outputs=model.layers[-1].output)
     train_features = feature_model.predict(X_test)
@@ -156,6 +160,9 @@ def train_and_predict(bag_file):
 predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
 print("Predicted LiDAR Points:", predicted_points)
 print("Actual LiDAR Points:", actual_points)
+
+recall = recall_score(actual_points, predicted_points, average='macro')  # Change 'macro' as needed based on your class distribution
+print("Recall:", recall)
 
             #THE TWO TOPICS IN THE BAG FILE ARE:
             # /lidar_localizer/lidar_pose                                                               300 msgs    : geometry_msgs/PoseWithCovarianceStamped               
