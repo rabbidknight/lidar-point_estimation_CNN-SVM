@@ -81,14 +81,14 @@ def create_pointnet_model(input_shape):
         MaxPooling1D(2),
         Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
-        MaxPooling1D(2),
         Dropout(0.25),
         Conv1D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
-        Dropout(0.25),
+        UpSampling1D(2),
         Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
-        Conv1D(1, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
+        Dropout(0.25),
+        Conv1D(2, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         Flatten(),  # Flatten the output to make it a 1D vector
         Dense(7)  # Final layer with 7 units, one for each target variable
     ])
@@ -124,14 +124,14 @@ def train_and_predict(bag_file):
     #y = y.reshape(1, -1)
 
     #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    X_train, X_test, y_train, y_test = train_test_split(point_clouds, poses, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(point_clouds, poses, test_size=0.15, random_state=42)
 
     input_shape = (X_train.shape[1], 1)  # Assuming data is 1D
     model = create_pointnet_model(input_shape)
     optimizer = Adam(learning_rate=0.0015)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.01, patience=3, min_lr=0.0001)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.15, patience=5, min_lr=0.001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
-    model.fit(X_train, y_train, epochs=20, batch_size=32, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
+    model.fit(X_train, y_train, epochs=27, batch_size=24, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
 
     feature_model = tf.keras.models.Model(inputs=model.input, outputs=model.layers[-1].output)
     train_features = feature_model.predict(X_test)
