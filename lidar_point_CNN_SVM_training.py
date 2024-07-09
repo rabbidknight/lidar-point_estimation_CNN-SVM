@@ -3,6 +3,7 @@ import rosbag
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 from tensorflow import keras
 from keras import Sequential
 from keras.layers import Conv1D, BatchNormalization, MaxPooling1D, Dropout, UpSampling1D, Dense, Flatten
@@ -12,6 +13,15 @@ from sklearn.svm import SVR
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from keras.preprocessing.sequence import pad_sequences
+from joblib import dump
+
+def calculate_mean_percentage_error(actual, predicted):
+    # Avoid division by zero and handle cases where actual values are zero
+    non_zero_mask = actual != 0
+    percentage_errors = np.where(non_zero_mask, 100 * (actual - predicted) / actual, 0)
+    mean_percentage_errors = np.mean(percentage_errors, axis=0)
+    return mean_percentage_errors
+
 
 def extract_data_from_bag(bag_file):
     bag = rosbag.Bag(bag_file)
@@ -73,6 +83,55 @@ def extract_data_from_bag(bag_file):
 
     return np.array(synced_point_clouds), pd.DataFrame(synced_poses, columns=['pos_x', 'pos_y', 'pos_z', 'ori_x', 'ori_y', 'ori_z', 'ori_w'])
 
+def visualize_results(predicted_points, actual_points):
+
+    print("Predicted LiDAR Points:", predicted_points)
+    print("Actual LiDAR Points:", actual_points)
+
+
+    # Extract x, y, z coordinates
+    x_actual = actual_points[:, 0]
+    y_actual = actual_points[:, 1]
+    z_actual = actual_points[:, 2]
+    x_pred = predicted_points[:, 0]
+    y_pred = predicted_points[:, 1]
+    z_pred = predicted_points[:, 2]
+
+    # Plotting
+    plt.figure(figsize=(18, 6))
+    plt.subplot(1, 3, 1)
+    plt.scatter(x_actual, x_pred, c='blue')
+    plt.title('X Coordinates')
+    plt.xlabel('Actual')
+    plt.ylabel('Predicted')
+
+    plt.subplot(1, 3, 2)
+    plt.scatter(y_actual, y_pred, c='red')
+    plt.title('Y Coordinates')
+    plt.xlabel('Actual')
+    plt.ylabel('Predicted')
+
+    plt.subplot(1, 3, 3)
+    plt.scatter(z_actual, z_pred, c='green')
+    plt.title('Z Coordinates')
+    plt.xlabel('Actual')
+    plt.ylabel('Predicted')
+
+    plt.tight_layout()
+    plt.show()
+
+    # Assuming the shape of predicted_points and actual_points are (n_samples, 7)
+    mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
+    print("Mean Percentage Errors for each element:", mean_percentage_errors)
+
+    # Calculate Mean Squared Error
+    #mse = mean_squared_error(actual_points, predicted_points)
+    #print("Mean Squared Error:", mse)
+
+    # Calculate Mean Absolute Error
+    #mae = mean_absolute_error(actual_points, predicted_points)
+    #print("Mean Absolute Error:", mae)
+
 
 def create_pointnet_model(input_shape):
     model = Sequential([
@@ -128,10 +187,12 @@ def train_and_predict(bag_file):
 
     input_shape = (X_train.shape[1], 1)  # Assuming data is 1D
     model = create_pointnet_model(input_shape)
-    optimizer = Adam(learning_rate=0.0015)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.15, patience=5, min_lr=0.001)
+    optimizer = Adam(learning_rate=0.015)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=0.001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
-    model.fit(X_train, y_train, epochs=22, batch_size=24, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
+    model.fit(X_train, y_train, epochs=24, batch_size=24, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
+
+    model.save('model_09-07-24.h5')  # Save the model as an HDF5 file
 
     feature_model = tf.keras.models.Model(inputs=model.input, outputs=model.layers[-1].output)
     train_features = feature_model.predict(X_train)
@@ -152,23 +213,17 @@ def train_and_predict(bag_file):
 
     svm = SVR()
     svm.fit(train_features.reshape(-1, 1), y_train.ravel())
+    dump(svm, 'model_09-07-24.joblib')  # Save the SVM model using joblib
 
     predicted_lidar_points = svm.predict(test_features.reshape(-1, 1))
+    predicted_lidar_points = predicted_lidar_points.reshape(-1, 7)  # Reshape predictions into (n_samples, 7) format
+    actual_points = y_test # Ensure actual data is also reshaped similarly
 
-    return predicted_lidar_points, y_test.ravel()
+    return predicted_lidar_points, actual_points
 
 predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
-print("Predicted LiDAR Points:", predicted_points)
-print("Actual LiDAR Points:", actual_points)
 
-
-# Calculate Mean Squared Error
-mse = mean_squared_error(actual_points, predicted_points)
-print("Mean Squared Error:", mse)
-
-# Calculate Mean Absolute Error
-mae = mean_absolute_error(actual_points, predicted_points)
-print("Mean Absolute Error:", mae)
+#visualize_results(predicted_points, actual_points)
 
             #THE TWO TOPICS IN THE BAG FILE ARE:
             # /lidar_localizer/lidar_pose                                                               300 msgs    : geometry_msgs/PoseWithCovarianceStamped               
