@@ -84,7 +84,7 @@ def create_pointnet_model(input_shape):
         Dropout(0.25),
         Conv1D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
-        UpSampling1D(2),
+        #UpSampling1D(2),
         Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
         Dropout(0.25),
@@ -131,10 +131,10 @@ def train_and_predict(bag_file):
     optimizer = Adam(learning_rate=0.0015)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.15, patience=5, min_lr=0.001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
-    model.fit(X_train, y_train, epochs=27, batch_size=24, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
+    model.fit(X_train, y_train, epochs=22, batch_size=24, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
 
     feature_model = tf.keras.models.Model(inputs=model.input, outputs=model.layers[-1].output)
-    train_features = feature_model.predict(X_test)
+    train_features = feature_model.predict(X_train)
     test_features = feature_model.predict(X_test)
 
 
@@ -151,7 +151,7 @@ def train_and_predict(bag_file):
     #test_features = test_features.ravel()
 
     svm = SVR()
-    svm.fit(train_features.reshape(-1, 1), y_test.reshape(-1, 1))
+    svm.fit(train_features.reshape(-1, 1), y_train.ravel())
 
     predicted_lidar_points = svm.predict(test_features.reshape(-1, 1))
 
