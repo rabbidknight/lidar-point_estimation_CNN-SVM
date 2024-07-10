@@ -44,8 +44,8 @@ def calculate_mean_percentage_error(actual, predicted):
     return mean_percentage_errors
 
 # Load the pre-trained models
-cnn_model = load_model('model_09-07-24.h5')
-svm_model = joblib.load('model_09-07-24.joblib')  # Make sure you've saved the SVM model using joblib
+cnn_model = load_model('model_10-07-24.h5')
+svm_model = joblib.load('model_10-07-24.joblib')  # Make sure you've saved the SVM model using joblib
 
 # Load test data
 X_test, y_test = extract_data_from_bag('Issue_ID_4_2024_06_13_07_47_15.bag')
@@ -76,23 +76,33 @@ y_pred = predicted_points[:, 1]
 z_pred = predicted_points[:, 2]
 
 plt.figure(figsize=(18, 6))
-plt.subplot(1, 3, 1)
+plt.subplot(1, 4, 1)
 plt.scatter(x_actual, x_pred, c='blue')
 plt.title('X Coordinates')
 plt.xlabel('Actual')
 plt.ylabel('Predicted')
 
-plt.subplot(1, 3, 2)
+plt.subplot(1, 4, 2)
 plt.scatter(y_actual, y_pred, c='red')
 plt.title('Y Coordinates')
 plt.xlabel('Actual')
 plt.ylabel('Predicted')
 
-plt.subplot(1, 3, 3)
+plt.subplot(1, 4, 3)
 plt.scatter(z_actual, z_pred, c='green')
 plt.title('Z Coordinates')
 plt.xlabel('Actual')
 plt.ylabel('Predicted')
+
+# Plot X-Y Trajectories
+plt.subplot(1, 4, 4)
+plt.scatter(x_actual, y_actual, c='blue', label='Actual Trajectory', alpha=0.6)
+plt.scatter(x_pred, y_pred, c='red', label='Predicted Trajectory', alpha=0.6)
+plt.title('X-Y Trajectories')
+plt.xlabel('X Coordinate')
+plt.ylabel('Y Coordinate')
+plt.legend()
+
 
 plt.tight_layout()
 plt.show()
