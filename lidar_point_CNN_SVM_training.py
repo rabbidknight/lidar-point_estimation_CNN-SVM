@@ -7,16 +7,19 @@ import matplotlib.pyplot as plt
 from tensorflow import keras
 #for RNN
 from keras.layers import LSTM, Dense, Masking
+from keras.regularizers import l2
 #for CNN
 from keras import Sequential
 from keras.layers import Conv1D, BatchNormalization, MaxPooling1D, Dropout, UpSampling1D, Dense, Flatten
 from keras.optimizers import Adam
 from keras.callbacks import ReduceLROnPlateau
+#for SVM
 from sklearn.svm import SVR
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from keras.preprocessing.sequence import pad_sequences
 from joblib import dump
+from sklearn.multioutput import MultiOutputRegressor
 
 def calculate_mean_percentage_error(actual, predicted):
     # Avoid division by zero and handle cases where actual values are zero
@@ -95,12 +98,19 @@ def data_generator(X_data, y_data, batch_size):
 
 def create_rnn_model():
     model = Sequential([
-        LSTM(8, return_sequences=False, input_shape=(None, 1)),
+        # Input LSTM layer with more units and return sequences to stack another LSTM layer
+        LSTM(16, return_sequences=True, input_shape=(None, 1), kernel_regularizer=l2(0.01)),
+        Dropout(0.2),  # Dropout for regularization
+        
+        # Additional LSTM Layer
+        LSTM(4, return_sequences=False, kernel_regularizer=l2(0.01)),
+        Dropout(0.2),  # Dropout for regularization
+
         Dense(7, activation='relu')  # Assuming 7 features to match with SVM input needs
     ])
     return model
 
-def train_rnn_model(model, X_train, y_train, epochs=1, batch_size=32):
+def train_rnn_model(model, X_train, y_train, epochs=5, batch_size=32):
     """Trains the RNN model on provided data with dynamic batching."""
     model.compile(optimizer=Adam(learning_rate=0.015), loss='mean_squared_error')
     print("Model compiled")
@@ -117,11 +127,11 @@ def train_rnn_model(model, X_train, y_train, epochs=1, batch_size=32):
             model.train_on_batch(X_batch, y_batch)
         print(f"Epoch {epoch + 1}/{epochs} completed.")
     # Save the trained RNN model at the end of training
-    model.save('model_10-07-24.h5') 
+    model.save('model_10-07-24.keras') 
     print("Model saved")
 
 
-def extract_features(model, X_data, batch_size=32):
+def extract_features(model, X_data, batch_size=4):
     """Extracts features from the RNN model in batches."""
     features = []
     for start_idx in range(0, len(X_data), batch_size):
@@ -133,11 +143,11 @@ def extract_features(model, X_data, batch_size=32):
     return np.array(features)
 
 def train_svm(features, labels):
-    """Trains an SVM model on the features extracted from the RNN."""
-    svm = SVR()
-    svm.fit(features, labels.ravel())  # Flatten labels to fit
-    dump(svm, 'model_10-07-24.joblib')
-    return svm
+    svm = SVR()  # This is a simple SVM regressor which normally handles single output
+    multi_output_svm = MultiOutputRegressor(svm)  # Wrap it in MultiOutputRegressor to handle multiple outputs
+    multi_output_svm.fit(features, labels)  # No need to ravel; fit directly with labels as 2D array
+    dump(multi_output_svm, 'model_10-07-24.joblib')
+    return multi_output_svm
 
 def predict_with_svm(model, svm, X_test):
     """Predicts using the SVM model on features extracted from the RNN."""
@@ -146,14 +156,20 @@ def predict_with_svm(model, svm, X_test):
     return predictions
 
 point_clouds, poses = extract_data_from_bag('Issue_ID_4_2024_06_13_07_47_15.bag')
+
 # Ensure point_clouds is a list of arrays with shape (n_points, 3)
 #point_clouds = [np.array(cloud).reshape(-1, 3) for cloud in point_clouds]
+
+    # Ensure labels are a NumPy array, not a DataFrame
+if isinstance(poses, pd.DataFrame):
+    poses = poses.values  # Convert DataFrame to NumPy array
+
 print("Received data from bag")
 model = create_rnn_model()
 print("Created model")
-train_rnn_model(model, point_clouds, poses.values)
+train_rnn_model(model, point_clouds, poses)
 print("Trained model")
-svm = train_svm(extract_features(model, point_clouds), poses.values)
+svm = train_svm(extract_features(model, point_clouds), poses)
 print("Trained SVM")
 predicted_points = predict_with_svm(model, svm, point_clouds)
 print("Predicted points")

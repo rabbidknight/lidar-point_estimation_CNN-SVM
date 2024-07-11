@@ -44,7 +44,7 @@ def calculate_mean_percentage_error(actual, predicted):
     return mean_percentage_errors
 
 # Load the pre-trained models
-cnn_model = load_model('model_10-07-24.h5')
+rnn_model = load_model('model_10-07-24.keras')
 svm_model = joblib.load('model_10-07-24.joblib')  # Make sure you've saved the SVM model using joblib
 
 # Load test data
@@ -56,13 +56,15 @@ if isinstance(y_test, pd.DataFrame):
      y_test = y_test.values  # Convert to NumPy array as it's a DataFrame
 
 # Use the CNN model to extract features
-cnn_features = cnn_model.predict(X_test)
+rnn_features = rnn_model.predict(X_test)
+print("Unique features post RNN:", np.unique(rnn_features, axis=0).shape)  # Debugging
 
 # Use the pre-trained SVM to make predictions
-predicted_points = svm_model.predict(cnn_features.reshape(-1, 1))
-predicted_points = predicted_points.reshape(-1, 7)  # Assuming each prediction consists of 7 elements
+predicted_points = svm_model.predict(rnn_features)
+predicted_points = predicted_points  # Assuming each prediction consists of 7 elements
 actual_points = y_test
-
+# Diagnostic print to check variability in predictions
+print("Unique predicted points:", np.unique(predicted_points, axis=0).shape)
 # Output predictions
 print("Predicted LiDAR Points:", predicted_points)
 print("Actual LiDAR Points:", actual_points)
