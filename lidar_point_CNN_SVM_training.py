@@ -14,6 +14,27 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from keras.preprocessing.sequence import pad_sequences
 from joblib import dump
+import os
+import datetime
+import logging
+
+# Current timestamp to create a unique folder
+current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+current_folder = f"test_results_{current_time}"
+os.makedirs(current_folder, exist_ok=True)  # Create the directory if it doesn't exist
+
+# Setup logging
+logger = logging.getLogger('LidarTestLogger')
+logger.setLevel(logging.INFO)
+
+# Log file
+log_filename = os.path.join(current_folder, 'test_log.txt')
+file_handler = logging.FileHandler(log_filename)
+file_handler.setLevel(logging.INFO)
+
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 def calculate_mean_percentage_error(actual, predicted):
     # Avoid division by zero and handle cases where actual values are zero
@@ -35,6 +56,7 @@ def extract_data_from_bag(bag_file):
     num_point_clouds = 0
     num_lidar_poses = 0
 
+
     for topic, msg, t in bag.read_messages():
         if topic == "/lidar_localizer/aligned_cloud":
             data_array = np.frombuffer(msg.data, dtype=np.uint8)
@@ -53,25 +75,24 @@ def extract_data_from_bag(bag_file):
 
     bag.close()
 
-    # Data diagnostics
-    print("Number of point cloud entries read:", num_point_clouds)
-    print("Number of LiDAR pose entries read:", num_lidar_poses)
+     # Data diagnostics
+    logger.info("Number of point cloud entries read: %d", num_point_clouds)
+    logger.info("Number of LiDAR pose entries read: %d", num_lidar_poses)
     if point_cloud_data:
-        print("Number of input parameters in the first point cloud:", len(point_cloud_data[0]))
-        print("Data type of point cloud parameters:", point_cloud_data[0].dtype)
+        logger.info("Number of input parameters in the first point cloud: %d", len(point_cloud_data[0]))
+        logger.info("Data type of point cloud parameters: %s", point_cloud_data[0].dtype)
     if lidar_transform_data:
-        print("Number of input parameters in first LiDAR pose:", len(lidar_transform_data[0]))
-        print("Data type of LiDAR pose parameters:", type(lidar_transform_data[0][0]))
+        logger.info("Number of input parameters in first LiDAR pose: %d", len(lidar_transform_data[0]))
+        logger.info("Data type of LiDAR pose parameters: %s", type(lidar_transform_data[0][0]))
 
     # Pad point cloud data to ensure uniform length
     max_length = max(len(x) for x in point_cloud_data)
     padded_point_clouds = pad_sequences(point_cloud_data, maxlen=max_length, dtype='uint8', padding='post')
 
-    # Diagnostic print statements after padding
-    print("After padding:")
-    print("Shape of padded point cloud data:", padded_point_clouds.shape)
+    logger.info("After padding:")
+    logger.info("Shape of padded point cloud data: %s", padded_point_clouds.shape)
     if padded_point_clouds.size > 0:
-        print("Sample data from the first padded point cloud entry:", padded_point_clouds[0][:10])  # show first 10 elements
+        logger.info("Sample data from the first padded point cloud entry: %s", padded_point_clouds[0][:10])
 
     # Synchronize data based on closest timestamps
     synced_point_clouds = []
@@ -84,10 +105,8 @@ def extract_data_from_bag(bag_file):
     return np.array(synced_point_clouds), pd.DataFrame(synced_poses, columns=['pos_x', 'pos_y', 'pos_z', 'ori_x', 'ori_y', 'ori_z', 'ori_w'])
 
 def visualize_results(predicted_points, actual_points):
-
-    print("Predicted LiDAR Points:", predicted_points)
-    print("Actual LiDAR Points:", actual_points)
-
+    logger.info("Predicted LiDAR Points: %s", predicted_points)
+    logger.info("Actual LiDAR Points: %s", actual_points)
 
     # Extract x, y, z coordinates
     x_actual = actual_points[:, 0]
@@ -120,17 +139,8 @@ def visualize_results(predicted_points, actual_points):
     plt.tight_layout()
     plt.show()
 
-    # Assuming the shape of predicted_points and actual_points are (n_samples, 7)
     mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
-    print("Mean Percentage Errors for each element:", mean_percentage_errors)
-
-    # Calculate Mean Squared Error
-    #mse = mean_squared_error(actual_points, predicted_points)
-    #print("Mean Squared Error:", mse)
-
-    # Calculate Mean Absolute Error
-    #mae = mean_absolute_error(actual_points, predicted_points)
-    #print("Mean Absolute Error:", mae)
+    logger.info("Mean Percentage Errors for each element: %s", mean_percentage_errors)
 
 
 def create_pointnet_model(input_shape):
