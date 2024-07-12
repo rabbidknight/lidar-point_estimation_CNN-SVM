@@ -1,9 +1,14 @@
 import struct
+
+from sklearn import logger
 import rosbag
 import pandas as pd
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import os
+import datetime
+import logging
 from tensorflow import keras
 from keras import Sequential
 from keras.layers import Conv1D, BatchNormalization, MaxPooling1D, Dropout, UpSampling1D, Dense, Flatten
@@ -14,6 +19,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from keras.preprocessing.sequence import pad_sequences
 from joblib import dump
+
 
 def calculate_mean_percentage_error(actual, predicted):
     # Avoid division by zero and handle cases where actual values are zero
@@ -53,25 +59,25 @@ def extract_data_from_bag(bag_file):
 
     bag.close()
 
-    # Data diagnostics
-    print("Number of point cloud entries read:", num_point_clouds)
-    print("Number of LiDAR pose entries read:", num_lidar_poses)
+    #Data diagnostics
+    logger.info("Number of point cloud entries read: %d", num_point_clouds)
+    logger.info("Number of LiDAR pose entries read: %d", num_lidar_poses)
     if point_cloud_data:
-        print("Number of input parameters in the first point cloud:", len(point_cloud_data[0]))
-        print("Data type of point cloud parameters:", point_cloud_data[0].dtype)
+        logger.info("Number of input parameters in the first point cloud: %d", len(point_cloud_data[0]))
+        logger.info("Data type of point cloud parameters: %s", point_cloud_data[0].dtype)
     if lidar_transform_data:
-        print("Number of input parameters in first LiDAR pose:", len(lidar_transform_data[0]))
-        print("Data type of LiDAR pose parameters:", type(lidar_transform_data[0][0]))
-
+        logger.info("Number of input parameters in first LiDAR pose: %d", len(lidar_transform_data[0]))
+        logger.info("Data type of LiDAR pose parameters: %s", type(lidar_transform_data[0][0]))
+        
     # Pad point cloud data to ensure uniform length
     max_length = max(len(x) for x in point_cloud_data)
     padded_point_clouds = pad_sequences(point_cloud_data, maxlen=max_length, dtype='uint8', padding='post')
 
-    # Diagnostic print statements after padding
-    print("After padding:")
-    print("Shape of padded point cloud data:", padded_point_clouds.shape)
+    logger.info("After padding:")
+    logger.info("Shape of padded point cloud data: %s", padded_point_clouds.shape)
     if padded_point_clouds.size > 0:
-        print("Sample data from the first padded point cloud entry:", padded_point_clouds[0][:10])  # show first 10 elements
+        logger.info("Sample data from the first padded point cloud entry: %s", padded_point_clouds[0][:10])
+
 
     # Synchronize data based on closest timestamps
     synced_point_clouds = []
@@ -83,12 +89,7 @@ def extract_data_from_bag(bag_file):
 
     return np.array(synced_point_clouds), pd.DataFrame(synced_poses, columns=['pos_x', 'pos_y', 'pos_z', 'ori_x', 'ori_y', 'ori_z', 'ori_w'])
 
-def visualize_results(predicted_points, actual_points):
-
-    print("Predicted LiDAR Points:", predicted_points)
-    print("Actual LiDAR Points:", actual_points)
-
-
+def visualize_results(predicted_points, actual_points, folder):
     # Extract x, y, z coordinates
     x_actual = actual_points[:, 0]
     y_actual = actual_points[:, 1]
@@ -97,40 +98,48 @@ def visualize_results(predicted_points, actual_points):
     y_pred = predicted_points[:, 1]
     z_pred = predicted_points[:, 2]
 
-    # Plotting
-    plt.figure(figsize=(18, 6))
-    plt.subplot(1, 3, 1)
+    # Initialize the plotting
+    plt.figure(figsize=(18, 10))
+
+    # Plot X Coordinates
+    plt.subplot(1, 4, 1)
     plt.scatter(x_actual, x_pred, c='blue')
-    plt.title('X Coordinates')
-    plt.xlabel('Actual')
-    plt.ylabel('Predicted')
+    plt.title('X Coordinates Comparison')
+    plt.xlabel('Actual X')
+    plt.ylabel('Predicted X')
 
-    plt.subplot(1, 3, 2)
+    # Plot Y Coordinates
+    plt.subplot(1, 4, 2)
     plt.scatter(y_actual, y_pred, c='red')
-    plt.title('Y Coordinates')
-    plt.xlabel('Actual')
-    plt.ylabel('Predicted')
+    plt.title('Y Coordinates Comparison')
+    plt.xlabel('Actual Y')
+    plt.ylabel('Predicted Y')
 
-    plt.subplot(1, 3, 3)
+    # Plot Z Coordinates
+    plt.subplot(1, 4, 3)
     plt.scatter(z_actual, z_pred, c='green')
-    plt.title('Z Coordinates')
-    plt.xlabel('Actual')
-    plt.ylabel('Predicted')
+    plt.title('Z Coordinates Comparison')
+    plt.xlabel('Actual Z')
+    plt.ylabel('Predicted Z')
+
+    # Plot X-Y Trajectories
+    plt.subplot(1, 4, 4)
+    plt.scatter(x_actual, y_actual, c='blue', label='Actual Trajectory', alpha=0.6)
+    plt.scatter(x_pred, y_pred, c='red', label='Predicted Trajectory', alpha=0.6)
+    plt.title('X-Y Trajectories')
+    plt.xlabel('X Coordinate')
+    plt.ylabel('Y Coordinate')
+    plt.legend()
 
     plt.tight_layout()
-    plt.show()
+    # Save the full figure
+    plot_filename = os.path.join(folder, 'coordinate_comparison.png')
+    plt.savefig(plot_filename)
+    plt.close()  # Close the plot to free up memory
+    logger.info(f"Graphs saved to {plot_filename}")
 
-    # Assuming the shape of predicted_points and actual_points are (n_samples, 7)
-    mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
-    print("Mean Percentage Errors for each element:", mean_percentage_errors)
+# visualize_results(predicted_points, actual_points, current_folder)
 
-    # Calculate Mean Squared Error
-    #mse = mean_squared_error(actual_points, predicted_points)
-    #print("Mean Squared Error:", mse)
-
-    # Calculate Mean Absolute Error
-    #mae = mean_absolute_error(actual_points, predicted_points)
-    #print("Mean Absolute Error:", mae)
 
 
 def create_pointnet_model(input_shape):
@@ -190,9 +199,9 @@ def train_and_predict(bag_file):
     optimizer = Adam(learning_rate=0.015)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=0.001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
-    model.fit(X_train, y_train, epochs=24, batch_size=24, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
+    model.fit(X_train, y_train, epochs=24, batch_size=8, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
 
-    model.save('model_09-07-24.h5')  # Save the model as an HDF5 file
+    model.save('model_12-07-24.h5')  # Save the model as an HDF5 file
 
     feature_model = tf.keras.models.Model(inputs=model.input, outputs=model.layers[-1].output)
     train_features = feature_model.predict(X_train)
