@@ -143,95 +143,44 @@ def visualize_results(predicted_points, actual_points):
     logger.info("Mean Percentage Errors for each element: %s", mean_percentage_errors)
 
 
-def create_pointnet_model(input_shape):
+def create_slfn_model(input_shape):
     model = Sequential([
-        Conv1D(16, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
-        BatchNormalization(),
-        MaxPooling1D(2),
-        Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
-        BatchNormalization(),
-        Dropout(0.25),
-        Conv1D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
-        BatchNormalization(),
-        #UpSampling1D(2),
-        Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
-        BatchNormalization(),
-        Dropout(0.25),
-        Conv1D(2, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
-        Flatten(),  # Flatten the output to make it a 1D vector
-        Dense(7)  # Final layer with 7 units, one for each target variable
+        Flatten(input_shape=input_shape),  # Flatten the input if it is not already 1D
+        Dense(128, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(7, activation='linear')  # Output layer with 7 units (no activation for regression)
     ])
     return model
 
-"""
-# Data preparation logic for pointnet model
-def prepare_data(point_cloud_df, num_points):
-    # This assumes each point is a separate sample
-    if len(point_cloud_df) < num_points:
-        print(f"Not enough points, only {len(point_cloud_df)} available.")
-        return None, None
-    
-    # Sample points if more points are available than needed
-    sampled_df = point_cloud_df.sample(n=num_points)
-    X = np.array(sampled_df)
-    y = np.array([sampled_df['x'].mean(), sampled_df['y'].mean(), sampled_df['z'].mean()])  # example target
-
-    return X, y
-"""
 
 def train_and_predict(bag_file):
-    #point_cloud_df, lidar_df = extract_data_from_bag(bag_file)
     point_clouds, poses = extract_data_from_bag(bag_file)
-
-    #X, y = prepare_data(point_cloud_df, num_points)
-
-    # Check if the arrays are empty. Using len() function for numpy arrays.
     if len(point_clouds) == 0 or len(poses) == 0:
         print("No data available for training. Please check the ROS bag file.")
         return None, None
     
-    #y = y.reshape(1, -1)
-
-    #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     X_train, X_test, y_train, y_test = train_test_split(point_clouds, poses, test_size=0.15, random_state=42)
 
-    input_shape = (X_train.shape[1], 1)  # Assuming data is 1D
-    model = create_pointnet_model(input_shape)
-    optimizer = Adam(learning_rate=0.015)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=0.001)
+    input_shape = (X_train.shape[1], 1)  # Adjust depending on your actual input shape
+    model = create_slfn_model(input_shape)
+    optimizer = Adam(learning_rate=0.001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
-    model.fit(X_train, y_train, epochs=24, batch_size=24, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
 
-    model.save('model_09-07-24.h5')  # Save the model as an HDF5 file
+    # Train model
+    model.fit(X_train, y_train, epochs=100, batch_size=32, validation_split=0.2, verbose=1)
 
-    feature_model = tf.keras.models.Model(inputs=model.input, outputs=model.layers[-1].output)
-    train_features = feature_model.predict(X_train)
-    test_features = feature_model.predict(X_test)
+    # Save model
+    model.save(os.path.join(current_folder, 'slfn_model.h5'))
 
+    # Predict
+    predicted_points = model.predict(X_test)
+    actual_points = y_test.values
 
-    # Ensure y_train is a NumPy array and properly reshaped
-    if isinstance(y_train, pd.DataFrame):
-        y_train = y_train.values  # Convert to NumPy array as it's a DataFrame
- 
-     # Ensure y_test is a NumPy array and properly reshaped
-    if isinstance(y_test, pd.DataFrame):
-        y_test = y_test.values  # Convert to NumPy array as it's a DataFrame
- 
-
-    #train_features = train_features.ravel()
-    #test_features = test_features.ravel()
-
-    svm = SVR()
-    svm.fit(train_features.reshape(-1, 1), y_train.ravel())
-    dump(svm, 'model_09-07-24.joblib')  # Save the SVM model using joblib
-
-    predicted_lidar_points = svm.predict(test_features.reshape(-1, 1))
-    predicted_lidar_points = predicted_lidar_points.reshape(-1, 7)  # Reshape predictions into (n_samples, 7) format
-    actual_points = y_test # Ensure actual data is also reshaped similarly
-
-    return predicted_lidar_points, actual_points
+    return predicted_points, actual_points
 
 predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
+visualize_results(predicted_points, actual_points)
+
+
 
 #visualize_results(predicted_points, actual_points)
 
