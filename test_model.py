@@ -9,6 +9,28 @@ from keras.preprocessing.sequence import pad_sequences
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from keras.models import load_model
 from sklearn.svm import SVR
+import logging
+import datetime
+
+
+# Create a logger object
+logger = logging.getLogger('LidarTestLogger')
+
+# Set the level of the logger. This can be DEBUG, INFO, WARNING, ERROR, or CRITICAL
+logger.setLevel(logging.INFO)
+
+# Create a file handler which logs even debug messages
+current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+fh = logging.FileHandler(f'lidar_test_log_{current_time}.txt')
+fh.setLevel(logging.INFO)
+
+# Create formatter and add it to the handlers
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+
+# Add the handlers to logger
+logger.addHandler(fh)
+
 
 
 def extract_data_from_bag(bag_file):
@@ -63,11 +85,13 @@ print("Unique features post RNN:", np.unique(rnn_features, axis=0).shape)  # Deb
 predicted_points = svm_model.predict(rnn_features)
 predicted_points = predicted_points  # Assuming each prediction consists of 7 elements
 actual_points = y_test
-# Diagnostic print to check variability in predictions
-print("Unique predicted points:", np.unique(predicted_points, axis=0).shape)
-# Output predictions
-print("Predicted LiDAR Points:", predicted_points)
-print("Actual LiDAR Points:", actual_points)
+
+logger.info("Unique features post RNN: %s", np.unique(rnn_features, axis=0).shape)  # Debugging
+logger.info("Unique predicted points: %s", np.unique(predicted_points, axis=0).shape)
+
+logger.info("Predicted LiDAR Points: %s", predicted_points)
+logger.info("Actual LiDAR Points: %s", actual_points)
+
 
 # Plotting the x, y, z coordinates
 x_actual = actual_points[:, 0]
@@ -111,4 +135,4 @@ plt.show()
 
 # Calculate mean percentage errors for each element
 mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
-print("Mean Percentage Errors for each element:", mean_percentage_errors)
+logger.info("Mean Percentage Errors for each element: %s", mean_percentage_errors)

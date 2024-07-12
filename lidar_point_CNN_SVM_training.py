@@ -99,18 +99,18 @@ def data_generator(X_data, y_data, batch_size):
 def create_rnn_model():
     model = Sequential([
         # Input LSTM layer with more units and return sequences to stack another LSTM layer
-        LSTM(16, return_sequences=True, input_shape=(None, 1), kernel_regularizer=l2(0.01)),
+        LSTM(8, return_sequences=True, input_shape=(None, 1), kernel_regularizer=l2(0.01)),
         Dropout(0.2),  # Dropout for regularization
         
         # Additional LSTM Layer
         LSTM(4, return_sequences=False, kernel_regularizer=l2(0.01)),
-        Dropout(0.2),  # Dropout for regularization
+        Dropout(0.1),  # Dropout for regularization
 
         Dense(7, activation='relu')  # Assuming 7 features to match with SVM input needs
     ])
     return model
 
-def train_rnn_model(model, X_train, y_train, epochs=5, batch_size=32):
+def train_rnn_model(model, X_train, y_train, epochs=3, batch_size=32):
     """Trains the RNN model on provided data with dynamic batching."""
     model.compile(optimizer=Adam(learning_rate=0.015), loss='mean_squared_error')
     print("Model compiled")
@@ -131,7 +131,7 @@ def train_rnn_model(model, X_train, y_train, epochs=5, batch_size=32):
     print("Model saved")
 
 
-def extract_features(model, X_data, batch_size=4):
+def extract_features(model, X_data, batch_size=32):
     """Extracts features from the RNN model in batches."""
     features = []
     for start_idx in range(0, len(X_data), batch_size):
@@ -146,7 +146,7 @@ def train_svm(features, labels):
     svm = SVR()  # This is a simple SVM regressor which normally handles single output
     multi_output_svm = MultiOutputRegressor(svm)  # Wrap it in MultiOutputRegressor to handle multiple outputs
     multi_output_svm.fit(features, labels)  # No need to ravel; fit directly with labels as 2D array
-    dump(multi_output_svm, 'model_10-07-24.joblib')
+    dump(multi_output_svm, 'model_12-07-24.joblib')
     return multi_output_svm
 
 def predict_with_svm(model, svm, X_test):
