@@ -1,0 +1,258 @@
+bora@boraduman-monster:~/Documents/lidar-point_estimation_CNN-SVM$ python3 lidar_point_CNN_SVM_training.py 
+2024-07-13 20:05:25.125457: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2024-07-13 20:05:25.641538: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+Number of point cloud entries read: 300
+Number of LiDAR pose entries read: 300
+Number of input parameters in the first point cloud: 80976
+Data type of point cloud parameters: uint8
+Number of input parameters in first LiDAR pose: 7
+Data type of LiDAR pose parameters: <class 'float'>
+Received data from bag
+2024-07-13 20:05:34.354140: I tensorflow/compiler/xla/stream_executor/cuda/cuda_gpu_executor.cc:995] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+2024-07-13 20:05:34.378292: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1960] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+Created model
+no of epochs 10 batch size 16
+Model compiled
+Epoch 1/10 started.
+Training on batch 1 out of 18 and epoch 1/10
+Training on batch 2 out of 18 and epoch 1/10
+Training on batch 3 out of 18 and epoch 1/10
+Training on batch 4 out of 18 and epoch 1/10
+Training on batch 5 out of 18 and epoch 1/10
+Training on batch 6 out of 18 and epoch 1/10
+Training on batch 7 out of 18 and epoch 1/10
+Training on batch 8 out of 18 and epoch 1/10
+Training on batch 9 out of 18 and epoch 1/10
+Training on batch 10 out of 18 and epoch 1/10
+Training on batch 11 out of 18 and epoch 1/10
+Training on batch 12 out of 18 and epoch 1/10
+Training on batch 13 out of 18 and epoch 1/10
+Training on batch 14 out of 18 and epoch 1/10
+Training on batch 15 out of 18 and epoch 1/10
+Training on batch 16 out of 18 and epoch 1/10
+Training on batch 17 out of 18 and epoch 1/10
+Training on batch 18 out of 18 and epoch 1/10
+Training on batch 19 out of 18 and epoch 1/10
+Epoch 1/10 completed.
+Epoch 2/10 started.
+Training on batch 1 out of 18 and epoch 2/10
+Training on batch 2 out of 18 and epoch 2/10
+Training on batch 3 out of 18 and epoch 2/10
+Training on batch 4 out of 18 and epoch 2/10
+Training on batch 5 out of 18 and epoch 2/10
+Training on batch 6 out of 18 and epoch 2/10
+Training on batch 7 out of 18 and epoch 2/10
+Training on batch 8 out of 18 and epoch 2/10
+Training on batch 9 out of 18 and epoch 2/10
+Training on batch 10 out of 18 and epoch 2/10
+Training on batch 11 out of 18 and epoch 2/10
+Training on batch 12 out of 18 and epoch 2/10
+Training on batch 13 out of 18 and epoch 2/10
+Training on batch 14 out of 18 and epoch 2/10
+Training on batch 15 out of 18 and epoch 2/10
+Training on batch 16 out of 18 and epoch 2/10
+Training on batch 17 out of 18 and epoch 2/10
+Training on batch 18 out of 18 and epoch 2/10
+Training on batch 19 out of 18 and epoch 2/10
+Epoch 2/10 completed.
+Epoch 3/10 started.
+Training on batch 1 out of 18 and epoch 3/10
+Training on batch 2 out of 18 and epoch 3/10
+Training on batch 3 out of 18 and epoch 3/10
+Training on batch 4 out of 18 and epoch 3/10
+Training on batch 5 out of 18 and epoch 3/10
+Training on batch 6 out of 18 and epoch 3/10
+Training on batch 7 out of 18 and epoch 3/10
+Training on batch 8 out of 18 and epoch 3/10
+Training on batch 9 out of 18 and epoch 3/10
+Training on batch 10 out of 18 and epoch 3/10
+Training on batch 11 out of 18 and epoch 3/10
+Training on batch 12 out of 18 and epoch 3/10
+Training on batch 13 out of 18 and epoch 3/10
+Training on batch 14 out of 18 and epoch 3/10
+Training on batch 15 out of 18 and epoch 3/10
+Training on batch 16 out of 18 and epoch 3/10
+Training on batch 17 out of 18 and epoch 3/10
+Training on batch 18 out of 18 and epoch 3/10
+Training on batch 19 out of 18 and epoch 3/10
+Epoch 3/10 completed.
+Epoch 4/10 started.
+Training on batch 1 out of 18 and epoch 4/10
+Training on batch 2 out of 18 and epoch 4/10
+Training on batch 3 out of 18 and epoch 4/10
+Training on batch 4 out of 18 and epoch 4/10
+Training on batch 5 out of 18 and epoch 4/10
+Training on batch 6 out of 18 and epoch 4/10
+Training on batch 7 out of 18 and epoch 4/10
+Training on batch 8 out of 18 and epoch 4/10
+Training on batch 9 out of 18 and epoch 4/10
+Training on batch 10 out of 18 and epoch 4/10
+Training on batch 11 out of 18 and epoch 4/10
+Training on batch 12 out of 18 and epoch 4/10
+Training on batch 13 out of 18 and epoch 4/10
+Training on batch 14 out of 18 and epoch 4/10
+Training on batch 15 out of 18 and epoch 4/10
+Training on batch 16 out of 18 and epoch 4/10
+Training on batch 17 out of 18 and epoch 4/10
+Training on batch 18 out of 18 and epoch 4/10
+Training on batch 19 out of 18 and epoch 4/10
+Epoch 4/10 completed.
+Epoch 5/10 started.
+Training on batch 1 out of 18 and epoch 5/10
+Training on batch 2 out of 18 and epoch 5/10
+Training on batch 3 out of 18 and epoch 5/10
+Training on batch 4 out of 18 and epoch 5/10
+Training on batch 5 out of 18 and epoch 5/10
+Training on batch 6 out of 18 and epoch 5/10
+Training on batch 7 out of 18 and epoch 5/10
+Training on batch 8 out of 18 and epoch 5/10
+Training on batch 9 out of 18 and epoch 5/10
+Training on batch 10 out of 18 and epoch 5/10
+Training on batch 11 out of 18 and epoch 5/10
+Training on batch 12 out of 18 and epoch 5/10
+Training on batch 13 out of 18 and epoch 5/10
+Training on batch 14 out of 18 and epoch 5/10
+Training on batch 15 out of 18 and epoch 5/10
+Training on batch 16 out of 18 and epoch 5/10
+Training on batch 17 out of 18 and epoch 5/10
+Training on batch 18 out of 18 and epoch 5/10
+Training on batch 19 out of 18 and epoch 5/10
+Epoch 5/10 completed.
+Epoch 6/10 started.
+Training on batch 1 out of 18 and epoch 6/10
+Training on batch 2 out of 18 and epoch 6/10
+Training on batch 3 out of 18 and epoch 6/10
+Training on batch 4 out of 18 and epoch 6/10
+Training on batch 5 out of 18 and epoch 6/10
+Training on batch 6 out of 18 and epoch 6/10
+Training on batch 7 out of 18 and epoch 6/10
+Training on batch 8 out of 18 and epoch 6/10
+Training on batch 9 out of 18 and epoch 6/10
+Training on batch 10 out of 18 and epoch 6/10
+Training on batch 11 out of 18 and epoch 6/10
+Training on batch 12 out of 18 and epoch 6/10
+Training on batch 13 out of 18 and epoch 6/10
+Training on batch 14 out of 18 and epoch 6/10
+Training on batch 15 out of 18 and epoch 6/10
+Training on batch 16 out of 18 and epoch 6/10
+Training on batch 17 out of 18 and epoch 6/10
+Training on batch 18 out of 18 and epoch 6/10
+Training on batch 19 out of 18 and epoch 6/10
+Epoch 6/10 completed.
+Epoch 7/10 started.
+Training on batch 1 out of 18 and epoch 7/10
+Training on batch 2 out of 18 and epoch 7/10
+Training on batch 3 out of 18 and epoch 7/10
+Training on batch 4 out of 18 and epoch 7/10
+Training on batch 5 out of 18 and epoch 7/10
+Training on batch 6 out of 18 and epoch 7/10
+Training on batch 7 out of 18 and epoch 7/10
+Training on batch 8 out of 18 and epoch 7/10
+Training on batch 9 out of 18 and epoch 7/10
+Training on batch 10 out of 18 and epoch 7/10
+Training on batch 11 out of 18 and epoch 7/10
+Training on batch 12 out of 18 and epoch 7/10
+Training on batch 13 out of 18 and epoch 7/10
+Training on batch 14 out of 18 and epoch 7/10
+Training on batch 15 out of 18 and epoch 7/10
+Training on batch 16 out of 18 and epoch 7/10
+Training on batch 17 out of 18 and epoch 7/10
+Training on batch 18 out of 18 and epoch 7/10
+Training on batch 19 out of 18 and epoch 7/10
+Epoch 7/10 completed.
+Epoch 8/10 started.
+Training on batch 1 out of 18 and epoch 8/10
+Training on batch 2 out of 18 and epoch 8/10
+Training on batch 3 out of 18 and epoch 8/10
+Training on batch 4 out of 18 and epoch 8/10
+Training on batch 5 out of 18 and epoch 8/10
+Training on batch 6 out of 18 and epoch 8/10
+Training on batch 7 out of 18 and epoch 8/10
+Training on batch 8 out of 18 and epoch 8/10
+Training on batch 9 out of 18 and epoch 8/10
+Training on batch 10 out of 18 and epoch 8/10
+Training on batch 11 out of 18 and epoch 8/10
+Training on batch 12 out of 18 and epoch 8/10
+Training on batch 13 out of 18 and epoch 8/10
+Training on batch 14 out of 18 and epoch 8/10
+Training on batch 15 out of 18 and epoch 8/10
+Training on batch 16 out of 18 and epoch 8/10
+Training on batch 17 out of 18 and epoch 8/10
+Training on batch 18 out of 18 and epoch 8/10
+Training on batch 19 out of 18 and epoch 8/10
+Epoch 8/10 completed.
+Epoch 9/10 started.
+Training on batch 1 out of 18 and epoch 9/10
+Training on batch 2 out of 18 and epoch 9/10
+Training on batch 3 out of 18 and epoch 9/10
+Training on batch 4 out of 18 and epoch 9/10
+Training on batch 5 out of 18 and epoch 9/10
+Training on batch 6 out of 18 and epoch 9/10
+Training on batch 7 out of 18 and epoch 9/10
+Training on batch 8 out of 18 and epoch 9/10
+Training on batch 9 out of 18 and epoch 9/10
+Training on batch 10 out of 18 and epoch 9/10
+Training on batch 11 out of 18 and epoch 9/10
+Training on batch 12 out of 18 and epoch 9/10
+Training on batch 13 out of 18 and epoch 9/10
+Training on batch 14 out of 18 and epoch 9/10
+Training on batch 15 out of 18 and epoch 9/10
+Training on batch 16 out of 18 and epoch 9/10
+Training on batch 17 out of 18 and epoch 9/10
+Training on batch 18 out of 18 and epoch 9/10
+Training on batch 19 out of 18 and epoch 9/10
+Epoch 9/10 completed.
+Epoch 10/10 started.
+Training on batch 1 out of 18 and epoch 10/10
+Training on batch 2 out of 18 and epoch 10/10
+Training on batch 3 out of 18 and epoch 10/10
+Training on batch 4 out of 18 and epoch 10/10
+Training on batch 5 out of 18 and epoch 10/10
+Training on batch 6 out of 18 and epoch 10/10
+Training on batch 7 out of 18 and epoch 10/10
+Training on batch 8 out of 18 and epoch 10/10
+Training on batch 9 out of 18 and epoch 10/10
+Training on batch 10 out of 18 and epoch 10/10
+Training on batch 11 out of 18 and epoch 10/10
+Training on batch 12 out of 18 and epoch 10/10
+Training on batch 13 out of 18 and epoch 10/10
+Training on batch 14 out of 18 and epoch 10/10
+Training on batch 15 out of 18 and epoch 10/10
+Training on batch 16 out of 18 and epoch 10/10
+Training on batch 17 out of 18 and epoch 10/10
+Training on batch 18 out of 18 and epoch 10/10
+Training on batch 19 out of 18 and epoch 10/10
+Epoch 10/10 completed.
+Model saved
+Trained model
+1/1 [==============================] - 11s 11s/step
+2024-07-14 19:13:27.758320: W tensorflow/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 746848256 exceeds 10% of free system memory.
+2024-07-14 19:13:27.889220: W tensorflow/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 746848256 exceeds 10% of free system memory.
+2024-07-14 19:13:28.066254: W tensorflow/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 746848256 exceeds 10% of free system memory.
+1/1 [==============================] - 11s 11s/step
+1/1 [==============================] - 9s 9s/step
+2024-07-14 19:13:45.640648: W tensorflow/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 761659392 exceeds 10% of free system memory.
+2024-07-14 19:13:45.773182: W tensorflow/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 761659392 exceeds 10% of free system memory.
+1/1 [==============================] - 9s 9s/step
+1/1 [==============================] - 9s 9s/step
+1/1 [==============================] - 8s 8s/step
+1/1 [==============================] - 6s 6s/step
+1/1 [==============================] - 8s 8s/step
+1/1 [==============================] - 8s 8s/step
+1/1 [==============================] - 6s 6s/step
+Trained SVM
+1/1 [==============================] - 9s 9s/step
+1/1 [==============================] - 9s 9s/step
+1/1 [==============================] - 8s 8s/step
+1/1 [==============================] - 9s 9s/step
+1/1 [==============================] - 9s 9s/step
+1/1 [==============================] - 8s 8s/step
+1/1 [==============================] - 6s 6s/step
+1/1 [==============================] - 7s 7s/step
+1/1 [==============================] - 7s 7s/step
+1/1 [==============================] - 5s 5s/step
+Predicted points
+model layers are  [<keras.src.layers.rnn.lstm.LSTM object at 0x7f3d1c713e80>, <keras.src.layers.regularization.dropout.Dropout object at 0x7f3d1c5fba90>, <keras.src.layers.rnn.lstm.LSTM object at 0x7f3d1b5c9a00>, <keras.src.layers.regularization.dropout.Dropout object at 0x7f3d1ccd8c70>, <keras.src.layers.core.dense.Dense object at 0x7f3d1ccdc7f0>]
+

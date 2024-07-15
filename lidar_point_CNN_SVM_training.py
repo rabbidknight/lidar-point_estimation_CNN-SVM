@@ -99,18 +99,20 @@ def data_generator(X_data, y_data, batch_size):
 def create_rnn_model():
     model = Sequential([
         # Input LSTM layer with more units and return sequences to stack another LSTM layer
-        LSTM(8, return_sequences=True, input_shape=(None, 1), kernel_regularizer=l2(0.01)),
+        LSTM(64, return_sequences=True, input_shape=(None, 1), kernel_regularizer=l2(0.01)),
         Dropout(0.2),  # Dropout for regularization
         
         # Additional LSTM Layer
-        LSTM(4, return_sequences=False, kernel_regularizer=l2(0.01)),
-        Dropout(0.1),  # Dropout for regularization
+        LSTM(8, return_sequences=False, kernel_regularizer=l2(0.01)),
+        Dropout(0.04),  # Dropout for regularization
 
         Dense(7, activation='relu')  # Assuming 7 features to match with SVM input needs
     ])
     return model
 
-def train_rnn_model(model, X_train, y_train, epochs=3, batch_size=32):
+
+def train_rnn_model(model, X_train, y_train, epochs=10, batch_size=16):
+    print("no of epochs",epochs,"batch size",batch_size)
     """Trains the RNN model on provided data with dynamic batching."""
     model.compile(optimizer=Adam(learning_rate=0.015), loss='mean_squared_error')
     print("Model compiled")
@@ -175,8 +177,7 @@ predicted_points = predict_with_svm(model, svm, point_clouds)
 print("Predicted points")
 #visualize_results(predicted_points, poses.values)
 
-
-
+print("model layers are ",model.layers)
             #THE TWO TOPICS IN THE BAG FILE ARE:
             # /lidar_localizer/lidar_pose                                                               300 msgs    : geometry_msgs/PoseWithCovarianceStamped               
             #/lidar_localizer/aligned_cloud                                                            300 msgs    : sensor_msgs/PointCloud2                               
