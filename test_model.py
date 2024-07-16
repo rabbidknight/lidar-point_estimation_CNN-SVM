@@ -83,7 +83,6 @@ print("Unique features post RNN:", np.unique(rnn_features, axis=0).shape)  # Deb
 
 # Use the pre-trained SVM to make predictions
 predicted_points = svm_model.predict(rnn_features)
-predicted_points = predicted_points  # Assuming each prediction consists of 7 elements
 actual_points = y_test
 
 logger.info("Unique features post RNN: %s", np.unique(rnn_features, axis=0).shape)  # Debugging
