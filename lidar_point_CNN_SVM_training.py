@@ -17,6 +17,14 @@ from joblib import dump
 import os
 import datetime
 import logging
+import sys
+from keras.callbacks import Callback
+
+class TrainingLogger(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        if logs is not None:
+            logger.info(f'Epoch {epoch + 1}: Loss: {logs["loss"]}, Val Loss: {logs["val_loss"]}')
+
 
 # Current timestamp to create a unique folder
 current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -146,9 +154,32 @@ def visualize_results(predicted_points, actual_points):
 def create_slfn_model(input_shape):
     model = Sequential([
         Flatten(input_shape=input_shape),  # Flatten the input if it is not already 1D
+        Dense(16, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(32, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(64, activation='relu'),  # Hidden layer with 128 units and ReLU activation
         Dense(128, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(256, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(512, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(1024, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(2048, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(4096, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(8192, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(4096, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(2048, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(1024, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(512, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(256, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(128, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(64, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(32, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(16, activation='relu'),  # Hidden layer with 128 units and ReLU activation
         Dense(7, activation='linear')  # Output layer with 7 units (no activation for regression)
     ])
+
+    # Logging each layer's configuration
+    for layer in model.layers:
+        logger.info(f'Layer {layer.name} - Type: {layer.__class__.__name__}, Output Shape: {layer.output_shape}, Activation: {getattr(layer, "activation", None).__name__ if hasattr(layer, "activation") else "N/A"}')
+
     return model
 
 
@@ -165,8 +196,18 @@ def train_and_predict(bag_file):
     optimizer = Adam(learning_rate=0.001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
 
-    # Train model
-    model.fit(X_train, y_train, epochs=100, batch_size=32, validation_split=0.2, verbose=1)
+
+    # Reduce learning rate when a metric has stopped improving
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10, min_lr=0.0001, verbose=1)
+
+    # Custom logger for training
+    training_logger = TrainingLogger()
+
+    # Train the model
+    model.fit(
+        X_train, y_train, epochs=100, batch_size=32, validation_split=0.2,
+        callbacks=[reduce_lr, training_logger]  # Add the ReduceLROnPlateau and custom logging callback
+    )
 
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))
@@ -178,11 +219,10 @@ def train_and_predict(bag_file):
     return predicted_points, actual_points
 
 predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
-visualize_results(predicted_points, actual_points)
-
-
-
 #visualize_results(predicted_points, actual_points)
+
+
+
 
             #THE TWO TOPICS IN THE BAG FILE ARE:
             # /lidar_localizer/lidar_pose                                                               300 msgs    : geometry_msgs/PoseWithCovarianceStamped               
