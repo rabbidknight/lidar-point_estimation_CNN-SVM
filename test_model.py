@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -9,7 +10,47 @@ from keras.preprocessing.sequence import pad_sequences
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from keras.models import load_model
 from sklearn.svm import SVR
+import os
+import datetime
+from datetime import datetime
+import logging
+import re
+import subprocess
 
+def launch_plotjuggler(bag_file_path):
+    try:
+        subprocess.run(["plotjuggler-ros", bag_file_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print("Failed to launch PlotJuggler:", e)
+
+
+
+def find_latest_folder(base_path, pattern="test_results_"):
+    latest_time = None
+    latest_folder = None
+    for folder in os.listdir(base_path):
+        if folder.startswith(pattern):
+            # Extract the timestamp from the folder name
+            timestamp_str = folder[len(pattern):]
+            try:
+                folder_time = datetime.strptime(timestamp_str, "%Y-%m-%d_%H-%M-%S")
+                if latest_time is None or folder_time > latest_time:
+                    latest_time = folder_time
+                    latest_folder = folder
+            except ValueError:
+                continue  # If the timestamp is not valid, skip this folder
+    return latest_folder if latest_folder else None
+
+# Assuming the base directory where your test results folders are saved
+base_directory = os.getcwd()  # or set this to where your folders are
+
+# Find the latest folder
+current_folder = find_latest_folder(base_directory)
+if not current_folder:
+    print("No valid test result folder found.")
+    sys.exit(1)  # Exit if no folder found
+
+# Use current_folder for loading models and saving plots
 
 def extract_data_from_bag(bag_file):
     bag = rosbag.Bag(bag_file)
@@ -43,9 +84,10 @@ def calculate_mean_percentage_error(actual, predicted):
     mean_percentage_errors = np.mean(percentage_errors, axis=0)
     return mean_percentage_errors
 
+
 # Load the pre-trained models
-cnn_model = load_model('model_09-07-24.h5')
-svm_model = joblib.load('model_09-07-24.joblib')  # Make sure you've saved the SVM model using joblib
+slfn_model = load_model('cnn.h5')
+#svm_model = joblib.load('model_09-07-24.joblib')  # Make sure you've saved the SVM model using joblib
 
 # Load test data
 X_test, y_test = extract_data_from_bag('Issue_ID_4_2024_06_13_07_47_15.bag')
@@ -56,11 +98,13 @@ if isinstance(y_test, pd.DataFrame):
      y_test = y_test.values  # Convert to NumPy array as it's a DataFrame
 
 # Use the CNN model to extract features
-cnn_features = cnn_model.predict(X_test)
+cnn_features = slfn_model.predict(X_test)
 
 # Use the pre-trained SVM to make predictions
-predicted_points = svm_model.predict(cnn_features.reshape(-1, 1))
-predicted_points = predicted_points.reshape(-1, 7)  # Assuming each prediction consists of 7 elements
+#predicted_points = svm_model.predict(cnn_features.reshape(-1, 1))
+#predicted_points = predicted_points.reshape(-1, 7)  # Assuming each prediction consists of 7 elements
+
+predicted_points = cnn_features
 actual_points = y_test
 
 # Output predictions
@@ -75,27 +119,52 @@ x_pred = predicted_points[:, 0]
 y_pred = predicted_points[:, 1]
 z_pred = predicted_points[:, 2]
 
-plt.figure(figsize=(18, 6))
-plt.subplot(1, 3, 1)
-plt.scatter(x_actual, x_pred, c='blue')
-plt.title('X Coordinates')
-plt.xlabel('Actual')
-plt.ylabel('Predicted')
 
-plt.subplot(1, 3, 2)
-plt.scatter(y_actual, y_pred, c='red')
-plt.title('Y Coordinates')
-plt.xlabel('Actual')
-plt.ylabel('Predicted')
+def plot_and_save(x_actual, y_actual, z_actual, x_pred, y_pred, z_pred, output_dir):
+    plt.figure(figsize=(24, 8))
 
-plt.subplot(1, 3, 3)
-plt.scatter(z_actual, z_pred, c='green')
-plt.title('Z Coordinates')
-plt.xlabel('Actual')
-plt.ylabel('Predicted')
+    # Plot X Coordinates
+    plt.subplot(1, 4, 1)
+    plt.scatter(x_actual, x_pred, c='blue')
+    plt.title('X Coordinates')
+    plt.xlabel('Actual X')
+    plt.ylabel('Predicted X')
+    plt.grid(True)
 
-plt.tight_layout()
-plt.show()
+    # Plot Y Coordinates
+    plt.subplot(1, 4, 2)
+    plt.scatter(y_actual, y_pred, c='red')
+    plt.title('Y Coordinates')
+    plt.xlabel('Actual Y')
+    plt.ylabel('Predicted Y')
+    plt.grid(True)
+
+    # Plot Z Coordinates
+    plt.subplot(1, 4, 3)
+    plt.scatter(z_actual, z_pred, c='green')
+    plt.title('Z Coordinates')
+    plt.xlabel('Actual Z')
+    plt.ylabel('Predicted Z')
+    plt.grid(True)
+
+    # Plot X-Y Trajectories
+    plt.subplot(1, 4, 4)
+    plt.scatter(x_actual, y_actual, c='blue', label='Actual Trajectory', alpha=0.9)
+    plt.scatter(x_pred, y_pred, c='red', label='Predicted Trajectory', alpha=0.3)
+    plt.title('X-Y Trajectories')
+    plt.xlabel('X Coordinate')
+    plt.ylabel('Y Coordinate')
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'coordinate_comparisons.png'))
+    plt.close()  # Close the plot to free up memory
+
+# Example usage of the plot and save function
+plot_and_save(x_actual, y_actual, z_actual, x_pred, y_pred, z_pred, current_folder)
+
+#launch_plotjuggler('Issue_ID_4_2024_06_13_07_47_15.bag')
 
 # Calculate mean percentage errors for each element
 mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
