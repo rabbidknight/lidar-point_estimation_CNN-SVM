@@ -205,10 +205,10 @@ def train_and_predict(bag_file):
 
     # Train the model
     model.fit(
-        X_train, y_train, epochs=100, batch_size=32, validation_split=0.2,
+        X_train, y_train, epochs=150, batch_size=4, validation_split=0.2,
         callbacks=[reduce_lr, training_logger]  # Add the ReduceLROnPlateau and custom logging callback
-    )
 
+    )
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))
 

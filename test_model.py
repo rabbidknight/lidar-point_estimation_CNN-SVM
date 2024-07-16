@@ -15,6 +15,14 @@ import datetime
 from datetime import datetime
 import logging
 import re
+import subprocess
+
+def launch_plotjuggler(bag_file_path):
+    try:
+        subprocess.run(["plotjuggler-ros", bag_file_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print("Failed to launch PlotJuggler:", e)
+
 
 
 def find_latest_folder(base_path, pattern="test_results_"):
@@ -141,8 +149,8 @@ def plot_and_save(x_actual, y_actual, z_actual, x_pred, y_pred, z_pred, output_d
 
     # Plot X-Y Trajectories
     plt.subplot(1, 4, 4)
-    plt.scatter(x_actual, y_actual, c='blue', label='Actual Trajectory', alpha=0.6)
-    plt.scatter(x_pred, y_pred, c='red', label='Predicted Trajectory', alpha=0.6)
+    plt.scatter(x_actual, y_actual, c='blue', label='Actual Trajectory', alpha=0.9)
+    plt.scatter(x_pred, y_pred, c='red', label='Predicted Trajectory', alpha=0.3)
     plt.title('X-Y Trajectories')
     plt.xlabel('X Coordinate')
     plt.ylabel('Y Coordinate')
@@ -156,6 +164,7 @@ def plot_and_save(x_actual, y_actual, z_actual, x_pred, y_pred, z_pred, output_d
 # Example usage of the plot and save function
 plot_and_save(x_actual, y_actual, z_actual, x_pred, y_pred, z_pred, current_folder)
 
+#launch_plotjuggler('Issue_ID_4_2024_06_13_07_47_15.bag')
 
 # Calculate mean percentage errors for each element
 mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
