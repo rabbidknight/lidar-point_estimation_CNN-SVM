@@ -206,7 +206,7 @@ def plot3d_point_clouds(batched_point_clouds):
 
 def create_slfn_model():
     model = Sequential([
-        Flatten(), # Flatten the input if it is not already 1D
+        #Flatten(), # Flatten the input if it is not already 1D
         Dense(16, activation='relu'),  # Hidden layer with 128 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
         Dense(32, activation='relu'),  # Hidden layer with 128 units and ReLU activation
@@ -255,52 +255,46 @@ def prepare_batches_for_training(point_clouds, batch_size):
         batched_data.append(reshaped)
 
     return batched_data
-
-
 def train_and_predict(bag_file):
-    point_clouds, poses = extract_data_from_bag(bag_file, batch_size)
-    if len(point_clouds) == 0 or len(poses) == 0:
-        print("No data available for training. Please check the ROS bag file.")
-        return None, None
-    
-    #plot3d_point_clouds(point_clouds)
+    point_clouds, poses = extract_data_from_bag(bag_file, batch_size=1)
 
-    batched_point_clouds = prepare_batches_for_training(point_clouds, batch_size)
+    # Convert poses to a proper numpy array if it's not already
+    if isinstance(poses, pd.DataFrame):
+        poses = poses.values
 
-    X_train, X_test, y_train, y_test = train_test_split(batched_point_clouds, poses, test_size=0.15, random_state=42)
 
+    # Split the data into training and test sets
+    X_train, X_test, y_train, y_test = train_test_split(point_clouds, poses, test_size=0.15, random_state=42)
+
+    # Create and compile the model
     model = create_slfn_model()
 
-    # Train each batch
+    # Train the model
     for epoch in range(20):  # Adjust the number of epochs as necessary
         print(f"Starting epoch {epoch+1}")
-        for batch_X, batch_y in zip(X_train, y_train):
-            model.train_on_batch(batch_X, batch_y)
+        for point_cloud, label in zip(X_train, y_train):
+            point_cloud = point_cloud[np.newaxis, ..., np.newaxis]  # Adding necessary dimensions
+            label = label.reshape(1,-1)  # Reshape label to match the expected input and  also convert to numpy array
+            model.train_on_batch(point_cloud, label)
 
-        # Optional: Evaluate the model at the end of each epoch
-        val_loss = model.evaluate(X_test, y_test, verbose=1)
-        print(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
-
-    # Reduce learning rate when a metric has stopped improving
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10, min_lr=0.0001, verbose=1)
-
-    # Custom logger for training
-    training_logger = TrainingLogger()
-
-  
-    # Custom training loop to handle different batch sizes
-
+        # Evaluate the model at the end of each epoch
+        #val_loss = model.evaluate(X_test, y_test, verbose=1)
+        #print(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
 
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))
 
     # Predict
-    #predicted_points = model.predict(X_test)
-    #actual_points = y_test.values
+    predicted_points = model.predict(X_test_padded)
+    actual_points = y_test.values
+
+    return predicted_points, actual_points
+
 
 
 batch_size = 1
-train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
+predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
+
 
 #visualize_results(predicted_points, actual_points)
 
