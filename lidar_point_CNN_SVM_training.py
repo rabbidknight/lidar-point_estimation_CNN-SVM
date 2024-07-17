@@ -19,6 +19,8 @@ import datetime
 import logging
 import sys
 from keras.callbacks import Callback
+from mpl_toolkits.mplot3d import Axes3D  # This is needed for '3d' projection
+
 
 class TrainingLogger(Callback):
     def on_epoch_end(self, epoch, logs=None):
@@ -52,7 +54,7 @@ def calculate_mean_percentage_error(actual, predicted):
     return mean_percentage_errors
 
 
-def extract_data_from_bag(bag_file):
+def extract_data_from_bag(bag_file, batch_size):
     bag = rosbag.Bag(bag_file)
     point_cloud_data = []
     lidar_transform_data = []
@@ -93,24 +95,35 @@ def extract_data_from_bag(bag_file):
         logger.info("Number of input parameters in first LiDAR pose: %d", len(lidar_transform_data[0]))
         logger.info("Data type of LiDAR pose parameters: %s", type(lidar_transform_data[0][0]))
 
-    # Pad point cloud data to ensure uniform length
-    max_length = max(len(x) for x in point_cloud_data)
-    padded_point_clouds = pad_sequences(point_cloud_data, maxlen=max_length, dtype='uint8', padding='post')
-
-    logger.info("After padding:")
-    logger.info("Shape of padded point cloud data: %s", padded_point_clouds.shape)
-    if padded_point_clouds.size > 0:
-        logger.info("Sample data from the first padded point cloud entry: %s", padded_point_clouds[0][:10])
-
     # Synchronize data based on closest timestamps
     synced_point_clouds = []
     synced_poses = []
     for i, pc_time in enumerate(point_cloud_times):
         closest_idx = np.argmin([abs(pc_time - lt) for lt in lidar_times])
-        synced_point_clouds.append(padded_point_clouds[i])
+        synced_point_clouds.append(point_cloud_data[i])
         synced_poses.append(lidar_transform_data[closest_idx])
 
-    return np.array(synced_point_clouds), pd.DataFrame(synced_poses, columns=['pos_x', 'pos_y', 'pos_z', 'ori_x', 'ori_y', 'ori_z', 'ori_w'])
+    # Organize point clouds into batches
+    padded_point_clouds = []
+    max_lengths = []
+    '''
+    for i in range(0, len(point_cloud_data), batch_size):
+        batch = synced_point_clouds[i:i + batch_size]
+        max_length = max(len(pc) for pc in batch)
+        max_lengths.append(max_length)
+        padded_batch = pad_sequences(batch, maxlen=max_length, dtype='uint8', padding='post')
+        padded_point_clouds.extend(padded_batch)
+
+    # Log information about the padding and batch processing
+    logger.info(f"Processed {len(padded_point_clouds)} point clouds into batches of size {batch_size}")
+    for i, ml in enumerate(max_lengths):
+        logger.info(f"Batch {i + 1} padded to max length: {ml}")
+    #logger.info("After padding:")
+    #logger.info("Shape of padded point cloud data: %s", padded_point_clouds.shape)
+    #if padded_point_clouds.size > 0:
+    #    logger.info("Sample data from the first padded point cloud entry: %s", padded_point_clouds[0][:10])
+    '''
+    return (synced_point_clouds), pd.DataFrame(synced_poses, columns=['pos_x', 'pos_y', 'pos_z', 'ori_x', 'ori_y', 'ori_z', 'ori_w'])
 
 def visualize_results(predicted_points, actual_points):
     logger.info("Predicted LiDAR Points: %s", predicted_points)
@@ -150,52 +163,123 @@ def visualize_results(predicted_points, actual_points):
     mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
     logger.info("Mean Percentage Errors for each element: %s", mean_percentage_errors)
 
+def plot3d_point_clouds(batched_point_clouds):
+    # Set up the plot for 3D scatter
+    fig = plt.figure(figsize=(15, 10))
+    ax = fig.add_subplot(111, projection='3d')
 
-def create_slfn_model(input_shape):
+    # Loop through each batch of point clouds
+    for batch_index, point_clouds in enumerate(batched_point_clouds):
+        # Determine how many zeros to pad to make the array divisible by 3
+        needed_padding = (-len(point_clouds)) % 3
+        if needed_padding > 0:
+            # Pad with zeros at the end of the array
+            point_clouds = np.pad(point_clouds, (0, needed_padding), mode='constant')
+            logger.info(f"Batch {batch_index + 1} was padded with {needed_padding} zeros to make length divisible by 3.")
+
+        # Reshape the array now that it is guaranteed to be divisible by 3
+        reshaped_clouds = point_clouds.reshape(-1, 3)
+        x = reshaped_clouds[:, 0]
+        y = reshaped_clouds[:, 1]
+        z = reshaped_clouds[:, 2]
+
+        ax.scatter(x, y, z, label=f'Batch {batch_index + 1}', marker='o')
+
+    ax.set_title('Point Clouds X-Y-Z Scatter')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.legend()
+
+    plt.tight_layout()
+    
+    # Optionally save the plot
+    plot_filename = os.path.join(current_folder, '3d_point_clouds_plot.png')
+    plt.savefig(plot_filename)
+    plt.close()
+    logger.info("3D Point cloud plots saved to %s", plot_filename)
+
+    # Display the plot (this line is optional and useful if running interactively)
+    plt.show()
+
+
+
+def create_slfn_model():
     model = Sequential([
-        Flatten(input_shape=input_shape),  # Flatten the input if it is not already 1D
+        Flatten(), # Flatten the input if it is not already 1D
         Dense(16, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        BatchNormalization(),  # Batch normalization layer
         Dense(32, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(64, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(128, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(256, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(512, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(1024, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(2048, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(4096, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(8192, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(4096, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(2048, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(1024, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(512, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(256, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(128, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(64, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(32, activation='relu'),  # Hidden layer with 128 units and ReLU activation
-        Dense(16, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        BatchNormalization(),  # Batch normalization layer
+        Dropout(0.2),  # Dropout layer with 20% rate
+        Dense(64, activation='relu'),  # Hidden layer with 64 units and ReLU activation
+        BatchNormalization(),  # Batch normalization layer
+        Dropout(0.2),  # Dropout layer with 20% rate
         Dense(7, activation='linear')  # Output layer with 7 units (no activation for regression)
     ])
-
+    '''
     # Logging each layer's configuration
     for layer in model.layers:
         logger.info(f'Layer {layer.name} - Type: {layer.__class__.__name__}, Output Shape: {layer.output_shape}, Activation: {getattr(layer, "activation", None).__name__ if hasattr(layer, "activation") else "N/A"}')
+    '''
+    model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error')
+    #logger.info("optimizer:", model.optimizer, "loss:", model.loss, "metrics:", model.metrics_names, "learning rate:", model.optimizer.lr)
 
     return model
 
+def add_channel_dimension(batch):
+    # Convert list to a numpy array and add a new axis at the end to act as the channel dimension
+    batch_array = np.array([np.array(x) for x in batch])
+    return np.expand_dims(batch_array, axis=-1)
+
+
+def prepare_batches_for_training(point_clouds, batch_size):
+    batched_data = []
+
+    for i in range(0, len(point_clouds), batch_size):
+        # Extract the batch
+        batch = point_clouds[i:i + batch_size]
+
+        # Concatenate all arrays in the batch
+        concatenated = np.concatenate(batch)
+
+        # Pad the concatenated array if it's not divisible by 3
+        needed_padding = (-len(concatenated)) % 3
+        if needed_padding:
+            concatenated = np.pad(concatenated, (0, needed_padding), mode='constant')
+            logger.info(f"Batch {i // batch_size + 1} was padded with {needed_padding} zeros to make length divisible by 3.")
+
+        # Reshape the array into (x, y, z)
+        reshaped = concatenated.reshape(-1, 3)
+
+        batched_data.append(reshaped)
+
+    return batched_data
+
 
 def train_and_predict(bag_file):
-    point_clouds, poses = extract_data_from_bag(bag_file)
+    point_clouds, poses = extract_data_from_bag(bag_file, batch_size)
     if len(point_clouds) == 0 or len(poses) == 0:
         print("No data available for training. Please check the ROS bag file.")
         return None, None
     
-    X_train, X_test, y_train, y_test = train_test_split(point_clouds, poses, test_size=0.15, random_state=42)
+    #plot3d_point_clouds(point_clouds)
 
-    input_shape = (X_train.shape[1], 1)  # Adjust depending on your actual input shape
-    model = create_slfn_model(input_shape)
-    optimizer = Adam(learning_rate=0.001)
-    model.compile(optimizer=optimizer, loss='mean_squared_error')
+    batched_point_clouds = prepare_batches_for_training(point_clouds, batch_size)
 
+    X_train, X_test, y_train, y_test = train_test_split(batched_point_clouds, poses, test_size=0.15, random_state=42)
+
+    model = create_slfn_model()
+
+    # Train each batch
+    for epoch in range(20):  # Adjust the number of epochs as necessary
+        print(f"Starting epoch {epoch+1}")
+        for batch_X, batch_y in zip(X_train, y_train):
+            model.train_on_batch(batch_X, batch_y)
+
+        # Optional: Evaluate the model at the end of each epoch
+        val_loss = model.evaluate(X_test, y_test, verbose=1)
+        print(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
 
     # Reduce learning rate when a metric has stopped improving
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=10, min_lr=0.0001, verbose=1)
@@ -203,22 +287,21 @@ def train_and_predict(bag_file):
     # Custom logger for training
     training_logger = TrainingLogger()
 
-    # Train the model
-    model.fit(
-        X_train, y_train, epochs=150, batch_size=4, validation_split=0.2,
-        callbacks=[reduce_lr, training_logger]  # Add the ReduceLROnPlateau and custom logging callback
+  
+    # Custom training loop to handle different batch sizes
 
-    )
+
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))
 
     # Predict
-    predicted_points = model.predict(X_test)
-    actual_points = y_test.values
+    #predicted_points = model.predict(X_test)
+    #actual_points = y_test.values
 
-    return predicted_points, actual_points
 
-predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
+batch_size = 1
+train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
+
 #visualize_results(predicted_points, actual_points)
 
 
@@ -227,3 +310,4 @@ predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47
             #THE TWO TOPICS IN THE BAG FILE ARE:
             # /lidar_localizer/lidar_pose                                                               300 msgs    : geometry_msgs/PoseWithCovarianceStamped               
             #/lidar_localizer/aligned_cloud                                                            300 msgs    : sensor_msgs/PointCloud2                               
+

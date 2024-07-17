@@ -1,0 +1,37 @@
+2024-07-17 12:49:03,169 - LidarTestLogger - INFO - Number of point cloud entries read: 300
+2024-07-17 12:49:03,169 - LidarTestLogger - INFO - Number of LiDAR pose entries read: 300
+2024-07-17 12:49:03,169 - LidarTestLogger - INFO - Number of input parameters in the first point cloud: 80976
+2024-07-17 12:49:03,169 - LidarTestLogger - INFO - Data type of point cloud parameters: uint8
+2024-07-17 12:49:03,170 - LidarTestLogger - INFO - Number of input parameters in first LiDAR pose: 7
+2024-07-17 12:49:03,170 - LidarTestLogger - INFO - Data type of LiDAR pose parameters: <class 'float'>
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Processed 300 point clouds into batches of size 10
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 1 padded to max length: 83904
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 2 padded to max length: 86464
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 3 padded to max length: 86688
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 4 padded to max length: 90704
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 5 padded to max length: 91168
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 6 padded to max length: 91040
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 7 padded to max length: 86016
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 8 padded to max length: 83568
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 9 padded to max length: 81344
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 10 padded to max length: 72304
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 11 padded to max length: 91760
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 12 padded to max length: 92976
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 13 padded to max length: 82608
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 14 padded to max length: 78896
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 15 padded to max length: 83824
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 16 padded to max length: 83712
+2024-07-17 12:49:03,191 - LidarTestLogger - INFO - Batch 17 padded to max length: 79472
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 18 padded to max length: 70896
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 19 padded to max length: 64784
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 20 padded to max length: 61968
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 21 padded to max length: 60320
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 22 padded to max length: 61120
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 23 padded to max length: 66496
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 24 padded to max length: 72640
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 25 padded to max length: 75408
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 26 padded to max length: 78528
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 27 padded to max length: 79024
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 28 padded to max length: 79344
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 29 padded to max length: 79264
+2024-07-17 12:49:03,192 - LidarTestLogger - INFO - Batch 30 padded to max length: 81488
