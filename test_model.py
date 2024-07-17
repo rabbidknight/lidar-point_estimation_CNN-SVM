@@ -86,7 +86,7 @@ def calculate_mean_percentage_error(actual, predicted):
 
 
 # Load the pre-trained models
-slfn_model = load_model('cnn.h5')
+slfn_model = load_model('model_12-07-24.h5')
 #svm_model = joblib.load('model_09-07-24.joblib')  # Make sure you've saved the SVM model using joblib
 
 # Load test data
@@ -164,8 +164,9 @@ def plot_and_save(x_actual, y_actual, z_actual, x_pred, y_pred, z_pred, output_d
 # Example usage of the plot and save function
 plot_and_save(x_actual, y_actual, z_actual, x_pred, y_pred, z_pred, current_folder)
 
-#launch_plotjuggler('Issue_ID_4_2024_06_13_07_47_15.bag')
+launch_plotjuggler('Issue_ID_4_2024_06_13_07_47_15.bag')
 
 # Calculate mean percentage errors for each element
 mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
 print("Mean Percentage Errors for each element:", mean_percentage_errors)
+

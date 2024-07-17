@@ -156,7 +156,7 @@ def create_pointnet_model(input_shape):
         Conv1D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         BatchNormalization(),
         Dropout(0.25),
-        Conv1D(2, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
+        Conv1D(16, 3, activation='relu', padding='same', kernel_initializer='he_normal', input_shape=input_shape),
         Flatten(),  # Flatten the output to make it a 1D vector
         Dense(7)  # Final layer with 7 units, one for each target variable
     ])
@@ -197,9 +197,9 @@ def train_and_predict(bag_file):
     input_shape = (X_train.shape[1], 1)  # Assuming data is 1D
     model = create_pointnet_model(input_shape)
     optimizer = Adam(learning_rate=0.015)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=0.001)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.25, patience=8, min_lr=0.001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
-    model.fit(X_train, y_train, epochs=24, batch_size=8, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
+    model.fit(X_train, y_train, epochs=100, batch_size=16, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
 
     model.save('model_12-07-24.h5')  # Save the model as an HDF5 file
 
