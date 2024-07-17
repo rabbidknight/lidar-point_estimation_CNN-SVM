@@ -138,7 +138,6 @@ def visualize_results(predicted_points, actual_points, folder):
     plt.close()  # Close the plot to free up memory
     logger.info(f"Graphs saved to {plot_filename}")
 
-# visualize_results(predicted_points, actual_points, current_folder)
 
 
 
@@ -201,7 +200,7 @@ def train_and_predict(bag_file):
     model.compile(optimizer=optimizer, loss='mean_squared_error')
     model.fit(X_train, y_train, epochs=100, batch_size=16, validation_split=0.15, callbacks=[reduce_lr], verbose = 1)
 
-    model.save('model_12-07-24.h5')  # Save the model as an HDF5 file
+    model.save('cnn.h5')  # Save the model as an HDF5 file
 
     feature_model = tf.keras.models.Model(inputs=model.input, outputs=model.layers[-1].output)
     train_features = feature_model.predict(X_train)
@@ -231,8 +230,8 @@ def train_and_predict(bag_file):
     return predicted_lidar_points, actual_points
 
 predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
+# visualize_results(predicted_points, actual_points, current_folder)
 
-#visualize_results(predicted_points, actual_points)
 
             #THE TWO TOPICS IN THE BAG FILE ARE:
             # /lidar_localizer/lidar_pose                                                               300 msgs    : geometry_msgs/PoseWithCovarianceStamped               
