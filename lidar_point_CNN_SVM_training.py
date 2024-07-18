@@ -163,13 +163,13 @@ def visualize_results(predicted_points, actual_points):
     mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
     logger.info("Mean Percentage Errors for each element: %s", mean_percentage_errors)
 
-def plot3d_point_clouds(batched_point_clouds):
+def plot3d_point_clouds(batched_point_clouds, lidar_poses):
     # Set up the plot for 3D scatter
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
 
-    # Loop through each batch of point clouds
-    for batch_index, point_clouds in enumerate(batched_point_clouds):
+    # Loop through each batch of point clouds and their corresponding LiDAR positions
+    for batch_index, (point_clouds, pose) in enumerate(zip(batched_point_clouds, lidar_poses)):
         # Determine how many zeros to pad to make the array divisible by 3
         needed_padding = (-len(point_clouds)) % 3
         if needed_padding > 0:
@@ -179,9 +179,11 @@ def plot3d_point_clouds(batched_point_clouds):
 
         # Reshape the array now that it is guaranteed to be divisible by 3
         reshaped_clouds = point_clouds.reshape(-1, 3)
-        x = reshaped_clouds[:, 0]
-        y = reshaped_clouds[:, 1]
-        z = reshaped_clouds[:, 2]
+
+        # Apply the LiDAR position offset to each point in the point cloud
+        x = reshaped_clouds[:, 0] + pose[0]  # pose[0] is x-coordinate of the LiDAR position
+        y = reshaped_clouds[:, 1] + pose[1]  # pose[1] is y-coordinate
+        z = reshaped_clouds[:, 2] + pose[2]  # pose[2] is z-coordinate
 
         ax.scatter(x, y, z, label=f'Batch {batch_index + 1}', marker='o')
 
@@ -203,6 +205,24 @@ def plot3d_point_clouds(batched_point_clouds):
     plt.show()
 
 
+def plot2d_lidar_positions(actual, predicted, show=False):
+
+    # This function plots the actual vs predicted X-Y positions
+    plt.figure(figsize=(10, 5))
+    for actual, pred in zip(actual, predicted):
+        plt.scatter(actual[0], actual[1], color='blue', label='Actual' if actual is actual[0] else "")
+        plt.scatter(pred[0], pred[1], color='red', label='Predicted' if pred is predicted[0] else "")
+    plt.title('Lidar Positions ')
+    plt.xlabel('X Position')
+    plt.ylabel('Y Position')
+    plt.legend()
+    plt.grid(True)
+
+    # Save the plot in the unique folder
+    plt.savefig(os.path.join(current_folder, f'lidar_positions.png'))
+    if show:
+        plt.show()
+    plt.close()  # Close the plot to free up memory
 
 def create_slfn_model():
     model = Sequential([
@@ -213,6 +233,14 @@ def create_slfn_model():
         BatchNormalization(),  # Batch normalization layer
         Dropout(0.2),  # Dropout layer with 20% rate
         Dense(64, activation='relu'),  # Hidden layer with 64 units and ReLU activation
+        BatchNormalization(),  # Batch normalization layer
+        Dense(128, activation='relu'),  # Hidden layer with 64 units and ReLU activation
+        BatchNormalization(),  # Batch normalization layer
+        Dense(256, activation='relu'),  # Hidden layer with 64 units and ReLU activation
+        BatchNormalization(),  # Batch normalization layer
+        Dense(64, activation='relu'),  # Hidden layer with 64 units and ReLU activation
+        BatchNormalization(),  # Batch normalization layer
+        Dense(16, activation='relu'),  # Hidden layer with 64 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
         Dropout(0.2),  # Dropout layer with 20% rate
         Dense(7, activation='linear')  # Output layer with 7 units (no activation for regression)
@@ -255,6 +283,14 @@ def prepare_batches_for_training(point_clouds, batch_size):
         batched_data.append(reshaped)
 
     return batched_data
+
+def manual_split(data, labels, test_ratio=0.15):
+    total_samples = len(data)
+    split_idx = int(total_samples * (1 - test_ratio))
+    X_train, X_test = data[:split_idx], data[split_idx:]
+    y_train, y_test = labels[:split_idx], labels[split_idx:]
+    return X_train, X_test, y_train, y_test
+
 def train_and_predict(bag_file):
     point_clouds, poses = extract_data_from_bag(bag_file, batch_size=1)
 
@@ -264,36 +300,44 @@ def train_and_predict(bag_file):
 
 
     # Split the data into training and test sets
-    X_train, X_test, y_train, y_test = train_test_split(point_clouds, poses, test_size=0.15, random_state=42)
+    X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
 
     # Create and compile the model
     model = create_slfn_model()
 
     # Train the model
-    for epoch in range(20):  # Adjust the number of epochs as necessary
+    for epoch in range(10):  # Adjust the number of epochs as necessary
         print(f"Starting epoch {epoch+1}")
         for point_cloud, label in zip(X_train, y_train):
             point_cloud = point_cloud[np.newaxis, ..., np.newaxis]  # Adding necessary dimensions
             label = label.reshape(1,-1)  # Reshape label to match the expected input and  also convert to numpy array
             model.train_on_batch(point_cloud, label)
 
+
+    # Save model
+    model.save(os.path.join(current_folder, 'slfn_model.h5'))
+    logger.info("Model saved to %s", os.path.join(current_folder, 'slfn_model.h5'))
+
+
+
+    # After training, predict on the test set and handle each test point cloud individually
+    predictions = []
+    for test_point_cloud in zip(X_test):
+        test_point_cloud = test_point_cloud[np.newaxis, ..., np.newaxis]  # Add necessary dimensions
+        prediction = model.predict(test_point_cloud)
+        predictions.append(prediction)  # Append the single prediction result
+
+    plot2d_lidar_positions(y_test, predictions)  # Call plotting function
+    plot3d_point_clouds(point_clouds, poses)  # Call 3D plotting function
         # Evaluate the model at the end of each epoch
         #val_loss = model.evaluate(X_test, y_test, verbose=1)
         #print(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
 
-    # Save model
-    model.save(os.path.join(current_folder, 'slfn_model.h5'))
-
-    # Predict
-    predicted_points = model.predict(X_test_padded)
-    actual_points = y_test.values
-
-    return predicted_points, actual_points
 
 
 
 batch_size = 1
-predicted_points, actual_points = train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
+train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
 
 
 #visualize_results(predicted_points, actual_points)

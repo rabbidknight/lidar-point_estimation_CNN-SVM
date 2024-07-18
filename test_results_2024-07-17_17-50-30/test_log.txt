@@ -1,6 +1,0 @@
-2024-07-17 17:50:38,631 - LidarTestLogger - INFO - Number of point cloud entries read: 300
-2024-07-17 17:50:38,631 - LidarTestLogger - INFO - Number of LiDAR pose entries read: 300
-2024-07-17 17:50:38,631 - LidarTestLogger - INFO - Number of input parameters in the first point cloud: 80976
-2024-07-17 17:50:38,631 - LidarTestLogger - INFO - Data type of point cloud parameters: uint8
-2024-07-17 17:50:38,631 - LidarTestLogger - INFO - Number of input parameters in first LiDAR pose: 7
-2024-07-17 17:50:38,631 - LidarTestLogger - INFO - Data type of LiDAR pose parameters: <class 'float'>
