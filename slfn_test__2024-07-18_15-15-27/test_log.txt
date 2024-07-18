@@ -1,0 +1,39 @@
+2024-07-18 15:15:35,825 - LidarTestLogger - INFO - Number of point cloud entries read: 300
+2024-07-18 15:15:35,825 - LidarTestLogger - INFO - Number of LiDAR pose entries read: 300
+2024-07-18 15:15:35,825 - LidarTestLogger - INFO - Number of input parameters in the first point cloud: 80976
+2024-07-18 15:15:35,825 - LidarTestLogger - INFO - Data type of point cloud parameters: uint8
+2024-07-18 15:15:35,825 - LidarTestLogger - INFO - Number of input parameters in first LiDAR pose: 7
+2024-07-18 15:15:35,825 - LidarTestLogger - INFO - Data type of LiDAR pose parameters: <class 'float'>
+2024-07-18 15:15:49,405 - LidarTestLogger - INFO - Model saved to slfn_test__2024-07-18_15-15-27/slfn_model.h5
+2024-07-18 15:17:27,678 - LidarTestLogger - INFO - Batch 6 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:27,806 - LidarTestLogger - INFO - Batch 10 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:27,870 - LidarTestLogger - INFO - Batch 12 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:27,903 - LidarTestLogger - INFO - Batch 13 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:27,935 - LidarTestLogger - INFO - Batch 14 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:28,100 - LidarTestLogger - INFO - Batch 19 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:28,165 - LidarTestLogger - INFO - Batch 21 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:28,226 - LidarTestLogger - INFO - Batch 23 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:28,288 - LidarTestLogger - INFO - Batch 25 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:28,320 - LidarTestLogger - INFO - Batch 26 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:28,417 - LidarTestLogger - INFO - Batch 29 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:28,450 - LidarTestLogger - INFO - Batch 30 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:28,515 - LidarTestLogger - INFO - Batch 32 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:28,546 - LidarTestLogger - INFO - Batch 33 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:28,640 - LidarTestLogger - INFO - Batch 36 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:28,674 - LidarTestLogger - INFO - Batch 37 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:28,783 - LidarTestLogger - INFO - Batch 40 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:28,816 - LidarTestLogger - INFO - Batch 41 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:28,880 - LidarTestLogger - INFO - Batch 43 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:28,911 - LidarTestLogger - INFO - Batch 44 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:28,941 - LidarTestLogger - INFO - Batch 45 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:28,972 - LidarTestLogger - INFO - Batch 46 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:29,001 - LidarTestLogger - INFO - Batch 47 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:29,031 - LidarTestLogger - INFO - Batch 48 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:29,061 - LidarTestLogger - INFO - Batch 49 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:29,092 - LidarTestLogger - INFO - Batch 50 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:29,124 - LidarTestLogger - INFO - Batch 51 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:29,187 - LidarTestLogger - INFO - Batch 53 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:29,218 - LidarTestLogger - INFO - Batch 54 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:29,279 - LidarTestLogger - INFO - Batch 56 was padded with 2 zeros to make length divisible by 3.
+2024-07-18 15:17:29,309 - LidarTestLogger - INFO - Batch 57 was padded with 1 zeros to make length divisible by 3.
+2024-07-18 15:17:29,341 - LidarTestLogger - INFO - Batch 58 was padded with 1 zeros to make length divisible by 3.

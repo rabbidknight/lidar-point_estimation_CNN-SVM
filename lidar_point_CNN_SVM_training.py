@@ -30,7 +30,7 @@ class TrainingLogger(Callback):
 
 # Current timestamp to create a unique folder
 current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-current_folder = f"test_results_{current_time}"
+current_folder = f"slfn_test__{current_time}"
 os.makedirs(current_folder, exist_ok=True)  # Create the directory if it doesn't exist
 
 # Setup logging
@@ -204,24 +204,28 @@ def plot3d_point_clouds(batched_point_clouds, lidar_poses):
     # Display the plot (this line is optional and useful if running interactively)
     plt.show()
 
+def plot2d_lidar_positions(actual, predicted):
+    plt.figure(figsize=(10, 6))
+    for act in actual:
+        plt.scatter(act[0], act[1], color='blue', label='Actual' if act is actual[0] else "")  # Only label the first point to avoid duplicate labels
+    
+    for pred in predicted:
+        if pred.ndim > 1 and pred.shape[1] >= 2:  # Ensure pred is at least 2D and has at least two columns
+            plt.scatter(pred[0, 0], pred[0, 1], color='red', label='Predicted' if pred is predicted[0] else "")  # pred[0, 0] and pred[0, 1] for first row's x and y
+        elif pred.ndim == 1 and len(pred) >= 2:  # If it's 1D but has at least two elements
+            plt.scatter(pred[0], pred[1], color='red', label='Predicted' if pred is predicted[0] else "")
+        else:
+            print(f"Unexpected prediction shape or size: {pred.shape}")
 
-def plot2d_lidar_positions(actual, predicted, show=False):
-
-    # This function plots the actual vs predicted X-Y positions
-    plt.figure(figsize=(10, 5))
-    for actual, pred in zip(actual, predicted):
-        plt.scatter(actual[0], actual[1], color='blue', label='Actual' if actual is actual[0] else "")
-        plt.scatter(pred[0], pred[1], color='red', label='Predicted' if pred is predicted[0] else "")
-    plt.title('Lidar Positions ')
-    plt.xlabel('X Position')
-    plt.ylabel('Y Position')
+    plt.xlabel('X Coordinate')
+    plt.ylabel('Y Coordinate')
+    plt.title('2D Lidar Positions')
     plt.legend()
-    plt.grid(True)
 
     # Save the plot in the unique folder
     plt.savefig(os.path.join(current_folder, f'lidar_positions.png'))
-    if show:
-        plt.show()
+
+    plt.show()
     plt.close()  # Close the plot to free up memory
 
 def create_slfn_model():
@@ -231,17 +235,7 @@ def create_slfn_model():
         BatchNormalization(),  # Batch normalization layer
         Dense(32, activation='relu'),  # Hidden layer with 128 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
-        Dropout(0.2),  # Dropout layer with 20% rate
-        Dense(64, activation='relu'),  # Hidden layer with 64 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dense(128, activation='relu'),  # Hidden layer with 64 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dense(256, activation='relu'),  # Hidden layer with 64 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dense(64, activation='relu'),  # Hidden layer with 64 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dense(16, activation='relu'),  # Hidden layer with 64 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
+        
         Dropout(0.2),  # Dropout layer with 20% rate
         Dense(7, activation='linear')  # Output layer with 7 units (no activation for regression)
     ])
@@ -306,25 +300,27 @@ def train_and_predict(bag_file):
     model = create_slfn_model()
 
     # Train the model
-    for epoch in range(10):  # Adjust the number of epochs as necessary
+    for epoch in range(1):  # Adjust the number of epochs as necessary
         print(f"Starting epoch {epoch+1}")
         for point_cloud, label in zip(X_train, y_train):
             point_cloud = point_cloud[np.newaxis, ..., np.newaxis]  # Adding necessary dimensions
             label = label.reshape(1,-1)  # Reshape label to match the expected input and  also convert to numpy array
             model.train_on_batch(point_cloud, label)
 
-
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))
     logger.info("Model saved to %s", os.path.join(current_folder, 'slfn_model.h5'))
 
-
+    for idx, pc in enumerate(X_test):
+        print(f"Shape of point cloud {idx+1}: {pc.shape}")
 
     # After training, predict on the test set and handle each test point cloud individually
     predictions = []
-    for test_point_cloud in zip(X_test):
+    for test_point_cloud in (X_test):
+        print("Number of point clouds in X_test:", len(X_test))
         test_point_cloud = test_point_cloud[np.newaxis, ..., np.newaxis]  # Add necessary dimensions
         prediction = model.predict(test_point_cloud)
+        print(f"Prediction shape: {prediction.shape}")  # Check the shape of each prediction
         predictions.append(prediction)  # Append the single prediction result
 
     plot2d_lidar_positions(y_test, predictions)  # Call plotting function
