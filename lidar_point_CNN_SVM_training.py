@@ -59,20 +59,17 @@ def extract_data_from_bag(bag_file, batch_size):
     point_cloud_data = []
     lidar_transform_data = []
 
-    point_cloud_times = []
-    lidar_times = []
+    point_cloud_seq = []
+    lidar_pose_seq = []
 
     # Counters and diagnostics
     num_point_clouds = 0
     num_lidar_poses = 0
-
-
     for topic, msg, t in bag.read_messages():
         if topic == "/lidar_localizer/aligned_cloud":
             data_array = np.frombuffer(msg.data, dtype=np.uint8)
             point_cloud_data.append(data_array)
-            point_cloud_times.append(msg.header.stamp.to_nsec())
-            num_point_clouds += 1
+            point_cloud_seq.append(msg.header.seq)
         elif topic == "/lidar_localizer/lidar_pose":
             position = msg.pose.pose.position
             orientation = msg.pose.pose.orientation
@@ -80,32 +77,32 @@ def extract_data_from_bag(bag_file, batch_size):
                 position.x, position.y, position.z,
                 orientation.x, orientation.y, orientation.z, orientation.w
             ])
-            lidar_times.append(msg.header.stamp.to_nsec())
-            num_lidar_poses += 1
+            lidar_pose_seq.append(msg.header.seq)
 
     bag.close()
 
-     # Data diagnostics
-    logger.info("Number of point cloud entries read: %d", num_point_clouds)
-    logger.info("Number of LiDAR pose entries read: %d", num_lidar_poses)
-    if point_cloud_data:
-        logger.info("Number of input parameters in the first point cloud: %d", len(point_cloud_data[0]))
-        logger.info("Data type of point cloud parameters: %s", point_cloud_data[0].dtype)
-    if lidar_transform_data:
-        logger.info("Number of input parameters in first LiDAR pose: %d", len(lidar_transform_data[0]))
-        logger.info("Data type of LiDAR pose parameters: %s", type(lidar_transform_data[0][0]))
+    # Pad point cloud data to ensure uniform length
+    max_length = max(len(x) for x in point_cloud_data)
+    padded_point_clouds = pad_sequences(point_cloud_data, maxlen=max_length, dtype='uint8', padding='post')
 
-    # Synchronize data based on closest timestamps
+    # Synchronize data based on sequence numbers
     synced_point_clouds = []
     synced_poses = []
-    for i, pc_time in enumerate(point_cloud_times):
-        closest_idx = np.argmin([abs(pc_time - lt) for lt in lidar_times])
-        synced_point_clouds.append(point_cloud_data[i])
-        synced_poses.append(lidar_transform_data[closest_idx])
+    pose_dict = dict(zip(lidar_pose_seq, lidar_transform_data))
+
+    for seq in point_cloud_seq:
+        if seq in pose_dict:
+            synced_point_clouds.append(padded_point_clouds[point_cloud_seq.index(seq)])
+            synced_poses.append(pose_dict[seq])
+
+    plot3d_point_clouds(synced_point_clouds, synced_poses)
 
     # Organize point clouds into batches
     padded_point_clouds = []
     max_lengths = []
+    logger.info("synced_point_clouds")
+    print("synced_poses", synced_poses)
+    logger.info("synced_poses")
     '''
     for i in range(0, len(point_cloud_data), batch_size):
         batch = synced_point_clouds[i:i + batch_size]
@@ -168,6 +165,7 @@ def plot3d_point_clouds(batched_point_clouds, lidar_poses):
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
 
+
     # Loop through each batch of point clouds and their corresponding LiDAR positions
     for batch_index, (point_clouds, pose) in enumerate(zip(batched_point_clouds, lidar_poses)):
         # Determine how many zeros to pad to make the array divisible by 3
@@ -180,29 +178,30 @@ def plot3d_point_clouds(batched_point_clouds, lidar_poses):
         # Reshape the array now that it is guaranteed to be divisible by 3
         reshaped_clouds = point_clouds.reshape(-1, 3)
 
-        # Apply the LiDAR position offset to each point in the point cloud
-        x = reshaped_clouds[:, 0] + pose[0]  # pose[0] is x-coordinate of the LiDAR position
-        y = reshaped_clouds[:, 1] + pose[1]  # pose[1] is y-coordinate
-        z = reshaped_clouds[:, 2] + pose[2]  # pose[2] is z-coordinate
-
-        ax.scatter(x, y, z, label=f'Batch {batch_index + 1}', marker='o')
+        # Scatter each point adjusted by its corresponding LiDAR position
+        for point in reshaped_clouds:
+            if batch_index < 1:
+                for pose in lidar_poses:
+                    x = point[0] + pose[0]
+                    y = point[1] + pose[1]
+                    z = point[2] + pose[2]
+                    ax.scatter(x, y, z, color='b', alpha=0.5)
 
     ax.set_title('Point Clouds X-Y-Z Scatter')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.legend()
+    ax.legend(['Point Clouds'])
 
     plt.tight_layout()
-    
-    # Optionally save the plot
     plot_filename = os.path.join(current_folder, '3d_point_clouds_plot.png')
     plt.savefig(plot_filename)
     plt.close()
     logger.info("3D Point cloud plots saved to %s", plot_filename)
 
-    # Display the plot (this line is optional and useful if running interactively)
+    # Optionally display the plot
     plt.show()
+
 
 def plot2d_lidar_positions(actual, predicted):
     plt.figure(figsize=(10, 6))
@@ -292,9 +291,11 @@ def train_and_predict(bag_file):
     if isinstance(poses, pd.DataFrame):
         poses = poses.values
 
+    #plot3d_point_clouds(point_clouds, poses)  # Call 3D plotting function
 
     # Split the data into training and test sets
     X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
+'''
 
     # Create and compile the model
     model = create_slfn_model()
@@ -324,11 +325,10 @@ def train_and_predict(bag_file):
         predictions.append(prediction)  # Append the single prediction result
 
     plot2d_lidar_positions(y_test, predictions)  # Call plotting function
-    plot3d_point_clouds(point_clouds, poses)  # Call 3D plotting function
         # Evaluate the model at the end of each epoch
         #val_loss = model.evaluate(X_test, y_test, verbose=1)
         #print(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
-
+'''
 
 
 
