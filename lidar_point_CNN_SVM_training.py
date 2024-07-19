@@ -81,9 +81,6 @@ def extract_data_from_bag(bag_file, batch_size):
 
     bag.close()
 
-    # Pad point cloud data to ensure uniform length
-    max_length = max(len(x) for x in point_cloud_data)
-    padded_point_clouds = pad_sequences(point_cloud_data, maxlen=max_length, dtype='uint8', padding='post')
 
     # Synchronize data based on sequence numbers
     synced_point_clouds = []
@@ -92,17 +89,16 @@ def extract_data_from_bag(bag_file, batch_size):
 
     for seq in point_cloud_seq:
         if seq in pose_dict:
-            synced_point_clouds.append(padded_point_clouds[point_cloud_seq.index(seq)])
+            synced_point_clouds.append(point_cloud_data[point_cloud_seq.index(seq)])
             synced_poses.append(pose_dict[seq])
 
-    plot3d_point_clouds(synced_point_clouds, synced_poses)
+    point_cloud_data = plot3d_point_clouds(synced_point_clouds, synced_poses)
+    print(f"Number of dimensions in point_cloud: {(point_cloud_data[0])}")
 
     # Organize point clouds into batches
     padded_point_clouds = []
     max_lengths = []
-    logger.info("synced_point_clouds")
-    print("synced_poses", synced_poses)
-    logger.info("synced_poses")
+
     '''
     for i in range(0, len(point_cloud_data), batch_size):
         batch = synced_point_clouds[i:i + batch_size]
@@ -165,28 +161,30 @@ def plot3d_point_clouds(batched_point_clouds, lidar_poses):
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
 
+    reshaped_clouds = []
 
     # Loop through each batch of point clouds and their corresponding LiDAR positions
-    for batch_index, (point_clouds, pose) in enumerate(zip(batched_point_clouds, lidar_poses)):
+    for batch_index, (point_clouds) in enumerate((batched_point_clouds)):
         # Determine how many zeros to pad to make the array divisible by 3
         needed_padding = (-len(point_clouds)) % 3
         if needed_padding > 0:
             # Pad with zeros at the end of the array
             point_clouds = np.pad(point_clouds, (0, needed_padding), mode='constant')
             logger.info(f"Batch {batch_index + 1} was padded with {needed_padding} zeros to make length divisible by 3.")
-
+        
+        batch_index += 1
+        print(batch_index)
+        
+        print(point_clouds[0])
         # Reshape the array now that it is guaranteed to be divisible by 3
         reshaped_clouds = point_clouds.reshape(-1, 3)
+        pose = lidar_poses[batch_index-1]
+        x = reshaped_clouds[0] + pose[0]
+        y = reshaped_clouds[1] + pose[1]
+        z = reshaped_clouds[2] + pose[2]
+        ax.scatter(x, y, z, color='b', alpha=0.5)
 
-        # Scatter each point adjusted by its corresponding LiDAR position
-        for point in reshaped_clouds:
-            if batch_index < 1:
-                for pose in lidar_poses:
-                    x = point[0] + pose[0]
-                    y = point[1] + pose[1]
-                    z = point[2] + pose[2]
-                    ax.scatter(x, y, z, color='b', alpha=0.5)
-
+                
     ax.set_title('Point Clouds X-Y-Z Scatter')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
@@ -201,6 +199,8 @@ def plot3d_point_clouds(batched_point_clouds, lidar_poses):
 
     # Optionally display the plot
     plt.show()
+
+    return reshaped_clouds
 
 
 def plot2d_lidar_positions(actual, predicted):
