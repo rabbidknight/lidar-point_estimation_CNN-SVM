@@ -93,7 +93,6 @@ def extract_data_from_bag(bag_file, batch_size):
             synced_poses.append(pose_dict[seq])
 
     point_cloud_data = plot3d_point_clouds(synced_point_clouds, synced_poses)
-    print(f"Number of dimensions in point_cloud: {(point_cloud_data[0])}")
 
     # Organize point clouds into batches
     padded_point_clouds = []
@@ -162,9 +161,9 @@ def plot3d_point_clouds(batched_point_clouds, lidar_poses):
     ax = fig.add_subplot(111, projection='3d')
 
     reshaped_clouds = []
-
+    batch_index = 0
     # Loop through each batch of point clouds and their corresponding LiDAR positions
-    for batch_index, (point_clouds) in enumerate((batched_point_clouds)):
+    for point_clouds in batched_point_clouds:
         # Determine how many zeros to pad to make the array divisible by 3
         needed_padding = (-len(point_clouds)) % 3
         if needed_padding > 0:
@@ -172,18 +171,17 @@ def plot3d_point_clouds(batched_point_clouds, lidar_poses):
             point_clouds = np.pad(point_clouds, (0, needed_padding), mode='constant')
             logger.info(f"Batch {batch_index + 1} was padded with {needed_padding} zeros to make length divisible by 3.")
         
-        batch_index += 1
-        print(batch_index)
-        
-        print(point_clouds[0])
-        # Reshape the array now that it is guaranteed to be divisible by 3
         reshaped_clouds = point_clouds.reshape(-1, 3)
-        pose = lidar_poses[batch_index-1]
-        x = reshaped_clouds[0] + pose[0]
-        y = reshaped_clouds[1] + pose[1]
-        z = reshaped_clouds[2] + pose[2]
-        ax.scatter(x, y, z, color='b', alpha=0.5)
-
+        pose = lidar_poses[batch_index]
+        if batch_index < 50:
+            for i in range(len(reshaped_clouds)):
+                # Reshape the array now that it is guaranteed to be divisible by 3
+                x = reshaped_clouds[i,0] + pose[0]
+                y = reshaped_clouds[i,1] + pose[1]
+                z = reshaped_clouds[i,2] + pose[2]
+                ax.scatter(x, y, z, color='b', alpha=0.5)
+            
+        batch_index += 1
                 
     ax.set_title('Point Clouds X-Y-Z Scatter')
     ax.set_xlabel('X')

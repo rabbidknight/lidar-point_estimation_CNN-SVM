@@ -1,1 +1,0 @@
-2024-07-19 15:29:35,184 - LidarTestLogger - INFO - Batch 1 was padded with 1 zeros to make length divisible by 3.
