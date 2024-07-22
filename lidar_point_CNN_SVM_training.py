@@ -54,51 +54,47 @@ def calculate_mean_percentage_error(actual, predicted):
     return mean_percentage_errors
 
 
-def extract_data_from_bag(bag_file, batch_size):
+def extract_data_from_bag(bag_file, seq_offset):
     bag = rosbag.Bag(bag_file)
-    point_cloud_data = []
-    lidar_transform_data = []
+    point_cloud_data = {}
+    lidar_transform_data = {}
 
-    point_cloud_seq = []
-    lidar_pose_seq = []
-
-    # Counters and diagnostics
-    num_point_clouds = 0
-    num_lidar_poses = 0
     for topic, msg, t in bag.read_messages():
         if topic == "/lidar_localizer/aligned_cloud":
             data_array = np.frombuffer(msg.data, dtype=np.uint8)
-            point_cloud_data.append(data_array)
-            point_cloud_seq.append(msg.header.seq)
+            point_cloud_data[msg.header.seq] = data_array
         elif topic == "/lidar_localizer/lidar_pose":
             position = msg.pose.pose.position
             orientation = msg.pose.pose.orientation
-            lidar_transform_data.append([
+            lidar_transform_data[msg.header.seq] = [
                 position.x, position.y, position.z,
                 orientation.x, orientation.y, orientation.z, orientation.w
-            ])
-            lidar_pose_seq.append(msg.header.seq)
-
+            ]
     bag.close()
 
-
-    # Synchronize data based on sequence numbers
+    # Synchronize data based on sequence numbers with an offset
     synced_point_clouds = []
     synced_poses = []
-    pose_dict = dict(zip(lidar_pose_seq, lidar_transform_data))
 
-    for seq in point_cloud_seq:
-        if seq in pose_dict:
-            synced_point_clouds.append(point_cloud_data[point_cloud_seq.index(seq)])
-            synced_poses.append(pose_dict[seq])
+    for seq in point_cloud_data.keys():
+        corresponding_pose_seq = seq + seq_offset
+        if corresponding_pose_seq in lidar_transform_data:
+            synced_point_clouds.append(point_cloud_data[seq])
+            synced_poses.append(lidar_transform_data[corresponding_pose_seq])
+        else:
+            # Handle the case where there is no corresponding pose sequence
+            synced_point_clouds.append(point_cloud_data[seq])
+            synced_poses.append([np.nan]*7)  # Assuming 7 elements for missing pose data
 
     point_cloud_data = plot3d_point_clouds(synced_point_clouds, synced_poses)
 
+
+    '''
     # Organize point clouds into batches
     padded_point_clouds = []
     max_lengths = []
 
-    '''
+    
     for i in range(0, len(point_cloud_data), batch_size):
         batch = synced_point_clouds[i:i + batch_size]
         max_length = max(len(pc) for pc in batch)
@@ -155,34 +151,31 @@ def visualize_results(predicted_points, actual_points):
     mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
     logger.info("Mean Percentage Errors for each element: %s", mean_percentage_errors)
 
-def plot3d_point_clouds(batched_point_clouds, lidar_poses):
+def plot3d_point_clouds(point_clouds, lidar_poses):
+    for i in range(len(point_clouds)):
+        # Ensure the point clouds array is divisible by 3
+        needed_padding = (-len(point_clouds[i]) % 3)
+        if needed_padding:
+            point_cloud = np.pad(point_clouds, (0, needed_padding), mode='constant')
+            # Reshape the array for plotting
+    reshaped_clouds = [point_clouds[i:i + 3] for i in range(0, len(point_clouds), 3)]
+
     # Set up the plot for 3D scatter
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
 
-    reshaped_clouds = []
-    batch_index = 0
-    # Loop through each batch of point clouds and their corresponding LiDAR positions
-    for point_clouds in batched_point_clouds:
-        # Determine how many zeros to pad to make the array divisible by 3
-        needed_padding = (-len(point_clouds)) % 3
-        if needed_padding > 0:
-            # Pad with zeros at the end of the array
-            point_clouds = np.pad(point_clouds, (0, needed_padding), mode='constant')
-            logger.info(f"Batch {batch_index + 1} was padded with {needed_padding} zeros to make length divisible by 3.")
-        
-        reshaped_clouds = point_clouds.reshape(-1, 3)
-        pose = lidar_poses[batch_index]
-        if batch_index < 50:
-            for i in range(len(reshaped_clouds)):
-                # Reshape the array now that it is guaranteed to be divisible by 3
-                x = reshaped_clouds[i,0] + pose[0]
-                y = reshaped_clouds[i,1] + pose[1]
-                z = reshaped_clouds[i,2] + pose[2]
-                ax.scatter(x, y, z, color='b', alpha=0.5)
-            
-        batch_index += 1
-                
+    for point_cloud, pose in zip(point_clouds, lidar_poses):
+        if len(point_cloud) % 3 != 0:
+            raise ValueError("The total number of elements in the list must be divisible by 3.")
+        for i in range(0, len(point_cloud), 3):
+         # Extract x, y, z for plotting
+            x = point_cloud[i+0] + pose[0]
+            y = point_cloud[i+1] + pose[1]
+            z = point_cloud[i+2] + pose[2]
+
+            # Plot each point in the point cloud
+            ax.plot(x,y,z, color='b', markersize=2)
+
     ax.set_title('Point Clouds X-Y-Z Scatter')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
@@ -283,7 +276,8 @@ def manual_split(data, labels, test_ratio=0.15):
     return X_train, X_test, y_train, y_test
 
 def train_and_predict(bag_file):
-    point_clouds, poses = extract_data_from_bag(bag_file, batch_size=1)
+    seq_offset = 25  # Offset to synchronize point clouds and poses
+    point_clouds, poses = extract_data_from_bag(bag_file, seq_offset)
 
     # Convert poses to a proper numpy array if it's not already
     if isinstance(poses, pd.DataFrame):
