@@ -167,16 +167,18 @@ def plot3d_point_clouds(point_clouds, lidar_poses):
         # Reshape the cloud into 3 columns
         reshaped = cloud.reshape(-1, 3)
         reshaped_clouds.append(reshaped)
-
+    '''
     # Set up the plot for 3D scatter
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
 
     for i in range(len(reshaped_clouds)):
-        if i < len(lidar_poses):
+        #if i < len(lidar_poses):
+        if i < 3:
             for j in range(len(reshaped_clouds[i])):
                     # Extract x, y, z for plotting
-                        print('i:', i)
+                        print('i:', i, "j:", j, "remaining Js:", len(reshaped_clouds[i])-j)
+
                         x = reshaped_clouds[i][j][0] + lidar_poses[i][0]
                         y = reshaped_clouds[i][j][1] + lidar_poses[i][1]
                         z = reshaped_clouds[i][j][2] + lidar_poses[i][2]
@@ -198,7 +200,7 @@ def plot3d_point_clouds(point_clouds, lidar_poses):
 
     # Optionally display the plot
     plt.show()
-
+    '''
     return reshaped_clouds
 
 
@@ -229,21 +231,26 @@ def plot2d_lidar_positions(actual, predicted):
 def create_slfn_model():
     model = Sequential([
         #Flatten(), # Flatten the input if it is not already 1D
-        Dense(16, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(16, activation='relu'),  # Hidden layer with 16 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
-        Dense(32, activation='relu'),  # Hidden layer with 128 units and ReLU activation
+        Dense(32, activation='relu'),  # Hidden layer with 32 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
-        
+        Dense(64, activation='relu'),  # Hidden layer with 64 units and ReLU activation
+        BatchNormalization(),  # Batch normalization layer
+        Dense(32, activation='relu'),  # Hidden layer with 32 units and ReLU activation
+        BatchNormalization(),  # Batch normalization layer
+        Dense(16, activation='relu'),  # Hidden layer with 16 units and ReLU activation
+        BatchNormalization(),  # Batch normalization layer
         Dropout(0.2),  # Dropout layer with 20% rate
         Dense(7, activation='linear')  # Output layer with 7 units (no activation for regression)
     ])
-    '''
-    # Logging each layer's configuration
-    for layer in model.layers:
-        logger.info(f'Layer {layer.name} - Type: {layer.__class__.__name__}, Output Shape: {layer.output_shape}, Activation: {getattr(layer, "activation", None).__name__ if hasattr(layer, "activation") else "N/A"}')
-    '''
+
     model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error')
-    #logger.info("optimizer:", model.optimizer, "loss:", model.loss, "metrics:", model.metrics_names, "learning rate:", model.optimizer.lr)
+
+    #LOGGING
+    #for layer in model.layers:
+    #   logger.info(f'Layer {layer.name} - Type: {layer.__class__.__name__}, Output Shape: {layer.output_shape}, Activation: {getattr(layer, "activation", None).__name__ if hasattr(layer, "activation") else "N/A"}')
+    logger.info("optimizer:", model.optimizer, "loss:", model.loss, "metrics:", model.metrics_names, "learning rate:", model.optimizer.lr)
 
     return model
 
@@ -291,11 +298,8 @@ def train_and_predict(bag_file):
     if isinstance(poses, pd.DataFrame):
         poses = poses.values
 
-    #plot3d_point_clouds(point_clouds, poses)  # Call 3D plotting function
-
     # Split the data into training and test sets
     X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
-'''
 
     # Create and compile the model
     model = create_slfn_model()
@@ -328,11 +332,11 @@ def train_and_predict(bag_file):
         # Evaluate the model at the end of each epoch
         #val_loss = model.evaluate(X_test, y_test, verbose=1)
         #print(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
-'''
 
 
 
-batch_size = 1
+
+
 train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
 
 
