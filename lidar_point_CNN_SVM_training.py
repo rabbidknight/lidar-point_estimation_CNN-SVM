@@ -152,29 +152,37 @@ def visualize_results(predicted_points, actual_points):
     logger.info("Mean Percentage Errors for each element: %s", mean_percentage_errors)
 
 def plot3d_point_clouds(point_clouds, lidar_poses):
-    for i in range(len(point_clouds)):
-        # Ensure the point clouds array is divisible by 3
-        needed_padding = (-len(point_clouds[i]) % 3)
+
+
+    # Ensure the point clouds array is divisible by 3
+    reshaped_clouds = []
+    for i, cloud in enumerate(point_clouds):
+        # Calculate needed padding to make the length of the cloud divisible by 3
+        needed_padding = (-len(cloud) % 3)
         if needed_padding:
-            point_cloud = np.pad(point_clouds, (0, needed_padding), mode='constant')
-            # Reshape the array for plotting
-    reshaped_clouds = [point_clouds[i:i + 3] for i in range(0, len(point_clouds), 3)]
+            cloud = np.pad(cloud, (0, needed_padding), mode='constant')
+        if len(cloud) % 3 != 0:
+            raise ValueError("The total number of elements in the list must be divisible by 3.")
+        
+        # Reshape the cloud into 3 columns
+        reshaped = cloud.reshape(-1, 3)
+        reshaped_clouds.append(reshaped)
 
     # Set up the plot for 3D scatter
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
 
-    for point_cloud, pose in zip(point_clouds, lidar_poses):
-        if len(point_cloud) % 3 != 0:
-            raise ValueError("The total number of elements in the list must be divisible by 3.")
-        for i in range(0, len(point_cloud), 3):
-         # Extract x, y, z for plotting
-            x = point_cloud[i+0] + pose[0]
-            y = point_cloud[i+1] + pose[1]
-            z = point_cloud[i+2] + pose[2]
-
-            # Plot each point in the point cloud
-            ax.plot(x,y,z, color='b', markersize=2)
+    for i in range(len(reshaped_clouds)):
+        if i < len(lidar_poses):
+            for j in range(len(reshaped_clouds[i])):
+                    # Extract x, y, z for plotting
+                        print('i:', i)
+                        x = reshaped_clouds[i][j][0] + lidar_poses[i][0]
+                        y = reshaped_clouds[i][j][1] + lidar_poses[i][1]
+                        z = reshaped_clouds[i][j][2] + lidar_poses[i][2]
+                        # Plot each point in the point cloud
+                        ax.scatter(x,y,z, color='b', alpha=0.5)
+                        j += 2
 
     ax.set_title('Point Clouds X-Y-Z Scatter')
     ax.set_xlabel('X')
