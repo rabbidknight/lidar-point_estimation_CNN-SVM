@@ -111,7 +111,7 @@ def extract_data_from_bag(bag_file, seq_offset):
     #if padded_point_clouds.size > 0:
     #    logger.info("Sample data from the first padded point cloud entry: %s", padded_point_clouds[0][:10])
     '''
-    return (synced_point_clouds), pd.DataFrame(synced_poses, columns=['pos_x', 'pos_y', 'pos_z', 'ori_x', 'ori_y', 'ori_z', 'ori_w'])
+    return (point_cloud_data), pd.DataFrame(synced_poses, columns=['pos_x', 'pos_y', 'pos_z', 'ori_x', 'ori_y', 'ori_z', 'ori_w'])
 
 def visualize_results(predicted_points, actual_points):
     logger.info("Predicted LiDAR Points: %s", predicted_points)
@@ -228,60 +228,19 @@ def plot2d_lidar_positions(actual, predicted):
     plt.show()
     plt.close()  # Close the plot to free up memory
 
-def create_slfn_model():
+def create_slfn_model(input_shape):
     model = Sequential([
-        #Flatten(), # Flatten the input if it is not already 1D
-        Dense(16, activation='relu'),  # Hidden layer with 16 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dense(32, activation='relu'),  # Hidden layer with 32 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dense(64, activation='relu'),  # Hidden layer with 64 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dense(32, activation='relu'),  # Hidden layer with 32 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dense(16, activation='relu'),  # Hidden layer with 16 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dropout(0.2),  # Dropout layer with 20% rate
-        Dense(7, activation='linear')  # Output layer with 7 units (no activation for regression)
+        Dense(64, activation='relu', input_shape=(input_shape,)),
+        BatchNormalization(),
+        Dense(128, activation='relu'),
+        BatchNormalization(),
+        Dense(64, activation='relu'),
+        BatchNormalization(),
+        Dropout(0.2),
+        Dense(7, activation='linear')  # Assuming output dimensionality
     ])
-
     model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error')
-
-    #LOGGING
-    #for layer in model.layers:
-    #   logger.info(f'Layer {layer.name} - Type: {layer.__class__.__name__}, Output Shape: {layer.output_shape}, Activation: {getattr(layer, "activation", None).__name__ if hasattr(layer, "activation") else "N/A"}')
-    logger.info("optimizer:", model.optimizer, "loss:", model.loss, "metrics:", model.metrics_names, "learning rate:", model.optimizer.lr)
-
     return model
-
-def add_channel_dimension(batch):
-    # Convert list to a numpy array and add a new axis at the end to act as the channel dimension
-    batch_array = np.array([np.array(x) for x in batch])
-    return np.expand_dims(batch_array, axis=-1)
-
-
-def prepare_batches_for_training(point_clouds, batch_size):
-    batched_data = []
-
-    for i in range(0, len(point_clouds), batch_size):
-        # Extract the batch
-        batch = point_clouds[i:i + batch_size]
-
-        # Concatenate all arrays in the batch
-        concatenated = np.concatenate(batch)
-
-        # Pad the concatenated array if it's not divisible by 3
-        needed_padding = (-len(concatenated)) % 3
-        if needed_padding:
-            concatenated = np.pad(concatenated, (0, needed_padding), mode='constant')
-            logger.info(f"Batch {i // batch_size + 1} was padded with {needed_padding} zeros to make length divisible by 3.")
-
-        # Reshape the array into (x, y, z)
-        reshaped = concatenated.reshape(-1, 3)
-
-        batched_data.append(reshaped)
-
-    return batched_data
 
 def manual_split(data, labels, test_ratio=0.15):
     total_samples = len(data)
@@ -290,48 +249,74 @@ def manual_split(data, labels, test_ratio=0.15):
     y_train, y_test = labels[:split_idx], labels[split_idx:]
     return X_train, X_test, y_train, y_test
 
+def adjust_point_cloud_lengths(point_clouds, lidar_poses):
+    # Find the shortest point cloud length that is divisible by 3
+    min_length = min(len(pc) for pc in point_clouds if len(pc) % 3 == 0)
+
+    adjusted_point_clouds = []
+    expanded_poses = []
+
+    # Adjust point clouds and expand poses
+    for pc, pose in zip(point_clouds, lidar_poses):
+        if len(pc) >= min_length:
+            adjusted_point_clouds.append(pc[:min_length])
+            # Repeat the pose to match the number of points, then reshape
+            repeated_pose = np.repeat([pose], min_length, axis=0)
+            # Calculate needed padding to make the total length divisible by 7
+            total_elements = repeated_pose.size
+            needed_padding = (-total_elements % 7)
+            if needed_padding > 0:
+                # Pad with zeros (or nan, depending on your data handling needs)
+                padded_pose = np.pad(repeated_pose, ((0, 0), (0, needed_padding)), mode='constant', constant_values=np.nan)
+                expanded_pose = padded_pose.reshape(-1, 7)
+            else:
+                expanded_pose = repeated_pose.reshape(-1, 7)
+            expanded_poses.append(expanded_pose)
+
+    return adjusted_point_clouds, expanded_poses
+
+
+def extract_and_adjust_data(bag_file, seq_offset):
+    point_clouds, lidar_poses = extract_data_from_bag(bag_file, seq_offset)
+    # Adjust point clouds to the shortest one's length and expand poses
+    point_clouds, lidar_poses = adjust_point_cloud_lengths(point_clouds, lidar_poses)
+    return point_clouds, lidar_poses
+
+def prepare_data_for_training(point_clouds, lidar_poses):
+    # Reshape point clouds to (-1, 3) and poses to (-1, 7) and concatenate
+    input_data = [np.concatenate([pc.reshape(-1, 3), lp], axis=1) for pc, lp in zip(point_clouds, lidar_poses)]
+    input_data = np.vstack(input_data)  # Stack all the data
+    return input_data
+
 def train_and_predict(bag_file):
-    seq_offset = 25  # Offset to synchronize point clouds and poses
-    point_clouds, poses = extract_data_from_bag(bag_file, seq_offset)
+    seq_offset = 25  # Define your offset
+    point_clouds, poses = extract_and_adjust_data(bag_file, seq_offset)
+    
+   # Convert data to numpy arrays for training
+    point_clouds = np.array(point_clouds)
+    poses = np.array(poses)
 
-    # Convert poses to a proper numpy array if it's not already
-    if isinstance(poses, pd.DataFrame):
-        poses = poses.values
+    input_data = prepare_data_for_training(point_clouds, poses)
 
-    # Split the data into training and test sets
-    X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
+    # Split the data into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(point_clouds, poses, test_size=0.2)
 
-    # Create and compile the model
-    model = create_slfn_model()
+    # Create model
+    input_shape = input_data.shape[1]  # Number of features per sample
+    model = create_slfn_model(input_shape)
 
     # Train the model
-    for epoch in range(1):  # Adjust the number of epochs as necessary
-        print(f"Starting epoch {epoch+1}")
-        for point_cloud, label in zip(X_train, y_train):
-            point_cloud = point_cloud[np.newaxis, ..., np.newaxis]  # Adding necessary dimensions
-            label = label.reshape(1,-1)  # Reshape label to match the expected input and  also convert to numpy array
-            model.train_on_batch(point_cloud, label)
+    model.fit(X_train, y_train, epochs=10, batch_size=10)
 
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))
-    logger.info("Model saved to %s", os.path.join(current_folder, 'slfn_model.h5'))
+    logger.info(f"Model saved to {os.path.join(current_folder, 'slfn_model.h5')}")
 
-    for idx, pc in enumerate(X_test):
-        print(f"Shape of point cloud {idx+1}: {pc.shape}")
+    # Evaluate and predict
+    predictions = model.predict(X_test)
+    plot2d_lidar_positions(predictions, y_test)
 
-    # After training, predict on the test set and handle each test point cloud individually
-    predictions = []
-    for test_point_cloud in (X_test):
-        print("Number of point clouds in X_test:", len(X_test))
-        test_point_cloud = test_point_cloud[np.newaxis, ..., np.newaxis]  # Add necessary dimensions
-        prediction = model.predict(test_point_cloud)
-        print(f"Prediction shape: {prediction.shape}")  # Check the shape of each prediction
-        predictions.append(prediction)  # Append the single prediction result
-
-    plot2d_lidar_positions(y_test, predictions)  # Call plotting function
-        # Evaluate the model at the end of each epoch
-        #val_loss = model.evaluate(X_test, y_test, verbose=1)
-        #print(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
+train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
 
 
 
