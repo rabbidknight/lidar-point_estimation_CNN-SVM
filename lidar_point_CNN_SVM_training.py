@@ -71,28 +71,43 @@ def quaternion_to_euler(quaternion):
     r = R.from_quat(quaternion)
     return r.as_euler('xyz', degrees=False)  # Return Euler angles in radians
 
-def rotation_matrix(roll, pitch, yaw):
-    """Create a rotation matrix from roll, pitch, and yaw Euler angles."""
-    R_x = np.array([[1, 0, 0],
-                    [0, np.cos(roll), -np.sin(roll)],
-                    [0, np.sin(roll), np.cos(roll)]])
+def create_transformation_matrix(roll, pitch, yaw, tx, ty, tz):
+    """Create a 4x4 transformation matrix from Euler angles and translation vector."""
+    # Rotation matrices around the x, y, and z axis
+    R_x = np.array([
+        [1, 0, 0, 0],
+        [0, np.cos(roll), -np.sin(roll), 0],
+        [0, np.sin(roll), np.cos(roll), 0],
+        [0, 0, 0, 1]
+    ])
 
-    R_y = np.array([[np.cos(pitch), 0, np.sin(pitch)],
-                    [0, 1, 0],
-                    [-np.sin(pitch), 0, np.cos(pitch)]])
+    R_y = np.array([
+        [np.cos(pitch), 0, np.sin(pitch), 0],
+        [0, 1, 0, 0],
+        [-np.sin(pitch), 0, np.cos(pitch), 0],
+        [0, 0, 0, 1]
+    ])
 
-    R_z = np.array([[np.cos(yaw), -np.sin(yaw), 0],
-                    [np.sin(yaw), np.cos(yaw), 0],
-                    [0, 0, 1]])
+    R_z = np.array([
+        [np.cos(yaw), -np.sin(yaw), 0, 0],
+        [np.sin(yaw), np.cos(yaw), 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]
+    ])
 
-    R = np.dot(R_z, np.dot(R_y, R_x))
-    return R
+    # Translation matrix
+    T = np.array([
+        [1, 0, 0, tx],
+        [0, 1, 0, ty],
+        [0, 0, 1, tz],
+        [0, 0, 0, 1]
+    ])
+    # Combined rotation matrix
+    R = np.dot(np.dot(R_z, R_y), R_x)
 
-def transform_point_cloud(point_cloud, rotation_matrix, translation_vector):
-    """Apply rotation and translation to the point cloud."""
-    rotated_points = np.dot(point_cloud, rotation_matrix.T)  # Transpose to align dimensions
-    transformed_points = rotated_points + translation_vector
-    return transformed_points
+    # Full transformation matrix
+    transformation_matrix = np.dot(T, R)
+    return transformation_matrix
 
 def extract_and_transform_data(bag_file, seq_offset):
     """Extract data from a ROS bag and apply transformations based on LiDAR poses."""
@@ -130,24 +145,23 @@ def extract_and_transform_data(bag_file, seq_offset):
 
     # Transformation
     transformed_point_clouds = []
+    transformed_poses = []
     for cloud, pose in zip(synced_point_clouds, synced_poses):
         # Ensure cloud length is divisible by 3
         needed_padding = (-len(cloud) % 3)
         if needed_padding:
             cloud = np.pad(cloud, (0, needed_padding), 'constant', constant_values=0)
-        reshaped_cloud = cloud.reshape(-1, 3)
+        reshaped_cloud = cloud.reshape(-1, 3)    
+        # Get rotation matrix and translation vector from the lidar pose
+        euler_angles = quaternion_to_euler([pose[6], pose[3], pose[4], pose[5]])   #x y z w
+        transformed_poses.append(create_transformation_matrix(*euler_angles, pose[0], pose[1], pose[2]))
+        for i in range(len(cloud)):
+        # Get rotation matrix and translation vector from the point cloud
+            temp1 = (create_transformation_matrix(0, 0, 0, pose[0], pose[1], pose[2]))
+            transformed_point_clouds[i].append(np.dot(temp1, transformed_poses))
 
-        # Get rotation matrix and translation vector
-        if not np.isnan(pose).any():
-            euler_angles = quaternion_to_euler([pose[3], pose[4], pose[5], pose[6]])
-            rotation_mat = rotation_matrix(*euler_angles)
-            translation_vector = np.array([pose[0], pose[1], pose[2]])
-            transformed_cloud = transform_point_cloud(reshaped_cloud, rotation_mat, translation_vector)
-            transformed_point_clouds.append(transformed_cloud)
-        else:
-            transformed_point_clouds.append(reshaped_cloud)
 
-    return transformed_point_clouds, synced_poses
+    return transformed_point_clouds, transformed_poses
 
 
 
@@ -195,45 +209,40 @@ def visualize_results(predicted_points, actual_points):
     mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
     logger.info("Mean Percentage Errors for each element: %s", mean_percentage_errors)
 
-def plot3d_point_clouds(point_clouds, lidar_poses):
-    reshaped_clouds = point_clouds
 
- 
-    # Set up the plot for 3D scatter
+def plot3d_point_clouds(transformed_point_clouds, current_folder):
+    """
+    Plot transformed 3D point clouds.
+
+    Args:
+    transformed_point_clouds (list of np.array): List of point clouds after transformation.
+    current_folder (str): Path to the directory where plot should be saved.
+    """
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
 
-    for i in range(len(reshaped_clouds)):
-        print('i:', i)
-        #if i < len(lidar_poses):
-        if i < 3:
-            for j in range(len(reshaped_clouds[i])):
-                    # Extract x, y, z for plotting
-                        #print('i:', i, "j:", j, "remaining Js:", len(reshaped_clouds[i])-j)
+    # Plot each point in the transformed point clouds
+    for cloud in transformed_point_clouds:
+        ax.scatter(cloud[:, 0], cloud[:, 1], cloud[:, 2], alpha=0.5, color='b')
 
-                        x = reshaped_clouds[i][j][0] #+ lidar_poses[i][0]
-                        y = reshaped_clouds[i][j][1] #+ lidar_poses[i][1]
-                        z = reshaped_clouds[i][j][2] #+ lidar_poses[i][2]
-                        # Plot each point in the point cloud
-                        ax.scatter(x,y,z, color='b', alpha=0.5)
-                        j += 2
-
-    ax.set_title('Point Clouds X-Y-Z Scatter')
+    ax.set_title('Transformed Point Clouds X-Y-Z Scatter')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.legend(['Point Clouds'])
+    ax.legend(['Transformed Point Clouds'])
 
     plt.tight_layout()
-    plot_filename = os.path.join(current_folder, '3d_point_clouds_plot.png')
+    plot_filename = os.path.join(current_folder, '3d_transformed_point_clouds_plot.png')
     plt.savefig(plot_filename)
-    plt.close()
-    logger.info("3D Point cloud plots saved to %s", plot_filename)
+    plt.close()  # Close the plot to free up memory and save the file
+    logger.info(f"3D point cloud plots saved to {plot_filename}")
 
     # Optionally display the plot
     plt.show()
-    
-    return reshaped_clouds
+
+# Example usage:
+# plot3d_point_clouds(transformed_clouds, current_folder)
+
 
 
 def plot2d_lidar_positions(actual, predicted):
@@ -344,13 +353,13 @@ def manual_split(data, labels, test_ratio=0.15):
 def train_and_predict(bag_file):
     seq_offset = 25  # Offset to synchronize point clouds and poses
     point_clouds, poses = extract_and_transform_data(bag_file, seq_offset)
-
+    plot3d_point_clouds(point_clouds, current_folder)
     # Split the data into training and test sets
     X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
 
     # Create and compile the model
     model = create_slfn_model()
-
+"""
     model.fit(X_train, y_train, batch_size=32, epochs=100, verbose=1, validation_data=((X_test), y_test), callbacks=[TrainingLogger()])
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))
@@ -373,7 +382,7 @@ def train_and_predict(bag_file):
         #val_loss = model.evaluate(X_test, y_test, verbose=1)
         #print(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
 
-
+"""
 
 
 
