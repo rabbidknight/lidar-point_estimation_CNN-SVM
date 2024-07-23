@@ -20,6 +20,7 @@ import logging
 import sys
 from keras.callbacks import Callback
 from mpl_toolkits.mplot3d import Axes3D  # This is needed for '3d' projection
+from scipy.spatial.transform import Rotation as R
 
 
 class TrainingLogger(Callback):
@@ -54,11 +55,52 @@ def calculate_mean_percentage_error(actual, predicted):
     return mean_percentage_errors
 
 
-def extract_data_from_bag(bag_file, seq_offset):
+
+
+
+
+
+
+
+
+
+
+
+def quaternion_to_euler(quaternion):
+    """Convert quaternion (w, x, y, z) to Euler angles (roll, pitch, yaw)."""
+    r = R.from_quat(quaternion)
+    return r.as_euler('xyz', degrees=False)  # Return Euler angles in radians
+
+def rotation_matrix(roll, pitch, yaw):
+    """Create a rotation matrix from roll, pitch, and yaw Euler angles."""
+    R_x = np.array([[1, 0, 0],
+                    [0, np.cos(roll), -np.sin(roll)],
+                    [0, np.sin(roll), np.cos(roll)]])
+
+    R_y = np.array([[np.cos(pitch), 0, np.sin(pitch)],
+                    [0, 1, 0],
+                    [-np.sin(pitch), 0, np.cos(pitch)]])
+
+    R_z = np.array([[np.cos(yaw), -np.sin(yaw), 0],
+                    [np.sin(yaw), np.cos(yaw), 0],
+                    [0, 0, 1]])
+
+    R = np.dot(R_z, np.dot(R_y, R_x))
+    return R
+
+def transform_point_cloud(point_cloud, rotation_matrix, translation_vector):
+    """Apply rotation and translation to the point cloud."""
+    rotated_points = np.dot(point_cloud, rotation_matrix.T)  # Transpose to align dimensions
+    transformed_points = rotated_points + translation_vector
+    return transformed_points
+
+def extract_and_transform_data(bag_file, seq_offset):
+    """Extract data from a ROS bag and apply transformations based on LiDAR poses."""
     bag = rosbag.Bag(bag_file)
     point_cloud_data = {}
     lidar_transform_data = {}
 
+    # Extraction step
     for topic, msg, t in bag.read_messages():
         if topic == "/lidar_localizer/aligned_cloud":
             data_array = np.frombuffer(msg.data, dtype=np.uint8)
@@ -70,48 +112,50 @@ def extract_data_from_bag(bag_file, seq_offset):
                 position.x, position.y, position.z,
                 orientation.x, orientation.y, orientation.z, orientation.w
             ]
+
     bag.close()
 
-    # Synchronize data based on sequence numbers with an offset
+    # Sync and reshape
     synced_point_clouds = []
     synced_poses = []
-
-    for seq in point_cloud_data.keys():
+    for seq, cloud in point_cloud_data.items():
         corresponding_pose_seq = seq + seq_offset
         if corresponding_pose_seq in lidar_transform_data:
-            synced_point_clouds.append(point_cloud_data[seq])
-            synced_poses.append(lidar_transform_data[corresponding_pose_seq])
+            pose = lidar_transform_data[corresponding_pose_seq]
+            synced_point_clouds.append(cloud)
+            synced_poses.append(pose)
         else:
-            # Handle the case where there is no corresponding pose sequence
-            synced_point_clouds.append(point_cloud_data[seq])
-            synced_poses.append([np.nan]*7)  # Assuming 7 elements for missing pose data
+            synced_point_clouds.append(cloud)
+            synced_poses.append([np.nan]*7)  # Handle missing data with NaNs
 
-    point_cloud_data = plot3d_point_clouds(synced_point_clouds, synced_poses)
+    # Transformation
+    transformed_point_clouds = []
+    for cloud, pose in zip(synced_point_clouds, synced_poses):
+        # Ensure cloud length is divisible by 3
+        needed_padding = (-len(cloud) % 3)
+        if needed_padding:
+            cloud = np.pad(cloud, (0, needed_padding), 'constant', constant_values=0)
+        reshaped_cloud = cloud.reshape(-1, 3)
+
+        # Get rotation matrix and translation vector
+        if not np.isnan(pose).any():
+            euler_angles = quaternion_to_euler([pose[3], pose[4], pose[5], pose[6]])
+            rotation_mat = rotation_matrix(*euler_angles)
+            translation_vector = np.array([pose[0], pose[1], pose[2]])
+            transformed_cloud = transform_point_cloud(reshaped_cloud, rotation_mat, translation_vector)
+            transformed_point_clouds.append(transformed_cloud)
+        else:
+            transformed_point_clouds.append(reshaped_cloud)
+
+    return transformed_point_clouds, synced_poses
 
 
-    '''
-    # Organize point clouds into batches
-    padded_point_clouds = []
-    max_lengths = []
 
-    
-    for i in range(0, len(point_cloud_data), batch_size):
-        batch = synced_point_clouds[i:i + batch_size]
-        max_length = max(len(pc) for pc in batch)
-        max_lengths.append(max_length)
-        padded_batch = pad_sequences(batch, maxlen=max_length, dtype='uint8', padding='post')
-        padded_point_clouds.extend(padded_batch)
 
-    # Log information about the padding and batch processing
-    logger.info(f"Processed {len(padded_point_clouds)} point clouds into batches of size {batch_size}")
-    for i, ml in enumerate(max_lengths):
-        logger.info(f"Batch {i + 1} padded to max length: {ml}")
-    #logger.info("After padding:")
-    #logger.info("Shape of padded point cloud data: %s", padded_point_clouds.shape)
-    #if padded_point_clouds.size > 0:
-    #    logger.info("Sample data from the first padded point cloud entry: %s", padded_point_clouds[0][:10])
-    '''
-    return (synced_point_clouds), pd.DataFrame(synced_poses, columns=['pos_x', 'pos_y', 'pos_z', 'ori_x', 'ori_y', 'ori_z', 'ori_w'])
+
+
+
+
 
 def visualize_results(predicted_points, actual_points):
     logger.info("Predicted LiDAR Points: %s", predicted_points)
@@ -152,36 +196,24 @@ def visualize_results(predicted_points, actual_points):
     logger.info("Mean Percentage Errors for each element: %s", mean_percentage_errors)
 
 def plot3d_point_clouds(point_clouds, lidar_poses):
+    reshaped_clouds = point_clouds
 
-
-    # Ensure the point clouds array is divisible by 3
-    reshaped_clouds = []
-    for i, cloud in enumerate(point_clouds):
-        # Calculate needed padding to make the length of the cloud divisible by 3
-        needed_padding = (-len(cloud) % 3)
-        if needed_padding:
-            cloud = np.pad(cloud, (0, needed_padding), mode='constant')
-        if len(cloud) % 3 != 0:
-            raise ValueError("The total number of elements in the list must be divisible by 3.")
-        
-        # Reshape the cloud into 3 columns
-        reshaped = cloud.reshape(-1, 3)
-        reshaped_clouds.append(reshaped)
-    '''
+ 
     # Set up the plot for 3D scatter
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
 
     for i in range(len(reshaped_clouds)):
+        print('i:', i)
         #if i < len(lidar_poses):
         if i < 3:
             for j in range(len(reshaped_clouds[i])):
                     # Extract x, y, z for plotting
-                        print('i:', i, "j:", j, "remaining Js:", len(reshaped_clouds[i])-j)
+                        #print('i:', i, "j:", j, "remaining Js:", len(reshaped_clouds[i])-j)
 
-                        x = reshaped_clouds[i][j][0] + lidar_poses[i][0]
-                        y = reshaped_clouds[i][j][1] + lidar_poses[i][1]
-                        z = reshaped_clouds[i][j][2] + lidar_poses[i][2]
+                        x = reshaped_clouds[i][j][0] #+ lidar_poses[i][0]
+                        y = reshaped_clouds[i][j][1] #+ lidar_poses[i][1]
+                        z = reshaped_clouds[i][j][2] #+ lidar_poses[i][2]
                         # Plot each point in the point cloud
                         ax.scatter(x,y,z, color='b', alpha=0.5)
                         j += 2
@@ -200,7 +232,7 @@ def plot3d_point_clouds(point_clouds, lidar_poses):
 
     # Optionally display the plot
     plt.show()
-    '''
+    
     return reshaped_clouds
 
 
@@ -227,6 +259,25 @@ def plot2d_lidar_positions(actual, predicted):
 
     plt.show()
     plt.close()  # Close the plot to free up memory
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def create_slfn_model():
     model = Sequential([
@@ -292,11 +343,7 @@ def manual_split(data, labels, test_ratio=0.15):
 
 def train_and_predict(bag_file):
     seq_offset = 25  # Offset to synchronize point clouds and poses
-    point_clouds, poses = extract_data_from_bag(bag_file, seq_offset)
-
-    # Convert poses to a proper numpy array if it's not already
-    if isinstance(poses, pd.DataFrame):
-        poses = poses.values
+    point_clouds, poses = extract_and_transform_data(bag_file, seq_offset)
 
     # Split the data into training and test sets
     X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
@@ -304,14 +351,7 @@ def train_and_predict(bag_file):
     # Create and compile the model
     model = create_slfn_model()
 
-    # Train the model
-    for epoch in range(1):  # Adjust the number of epochs as necessary
-        print(f"Starting epoch {epoch+1}")
-        for point_cloud, label in zip(X_train, y_train):
-            point_cloud = point_cloud[np.newaxis, ..., np.newaxis]  # Adding necessary dimensions
-            label = label.reshape(1,-1)  # Reshape label to match the expected input and  also convert to numpy array
-            model.train_on_batch(point_cloud, label)
-
+    model.fit(X_train, y_train, batch_size=32, epochs=100, verbose=1, validation_data=((X_test), y_test), callbacks=[TrainingLogger()])
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))
     logger.info("Model saved to %s", os.path.join(current_folder, 'slfn_model.h5'))
