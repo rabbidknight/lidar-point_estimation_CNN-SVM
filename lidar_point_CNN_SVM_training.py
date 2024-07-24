@@ -53,17 +53,48 @@ def calculate_mean_percentage_error(actual, predicted):
     mean_percentage_errors = np.mean(percentage_errors, axis=0)
     return mean_percentage_errors
 
-def quaternion_to_rotation_matrix(quaternion):
-    """Convert quaternion to a rotation matrix."""
-    return R.from_quat(quaternion).as_matrix()
+def quaternion_to_euler(quaternion):
+    """Convert quaternion (w, x, y, z) to Euler angles (roll, pitch, yaw)."""
+    r = R.from_quat(quaternion)
+    return r.as_euler('xyz', degrees=False)  # Return Euler angles in radians
 
-def apply_transformation(point_cloud, rotation_matrix, translation_vector):
-    """Apply rotation and translation to the point cloud."""
-    # Apply rotation
-    rotated_points = np.dot(point_cloud, rotation_matrix.T)  # Note the transpose of the rotation matrix
-    # Apply translation
-    transformed_points = rotated_points + translation_vector
-    return transformed_points
+import numpy as np
+
+def create_transformation_matrix(roll, pitch, yaw, tx, ty, tz):
+    """Create a 4x4 transformation matrix from Euler angles and translation vector."""
+    # Rotation matrices around the x, y, and z axis
+    R_x = np.array([
+        [1, 0, 0],
+        [0, np.cos(roll), -np.sin(roll)],
+        [0, np.sin(roll), np.cos(roll)]
+    ])
+
+    R_y = np.array([
+        [np.cos(pitch), 0, np.sin(pitch)],
+        [0, 1, 0],
+        [-np.sin(pitch), 0, np.cos(pitch)]
+    ])
+
+    R_z = np.array([
+        [np.cos(yaw), -np.sin(yaw), 0],
+        [np.sin(yaw), np.cos(yaw), 0],
+        [0, 0, 1]
+    ])
+
+    # Translation matrix
+    T = np.array([
+        [tx, 0, 0, 0],
+        [0, ty, 0, 0],
+        [0, 0, tz, 0],
+        [0, 0, 0, 1]
+    ])
+    # Combined rotation matrix
+    R = np.dot(np.dot(R_z, R_y), R_x)
+
+    # Full transformation matrix
+    transformation_matrix = np.dot(T, R)
+    return transformation_matrix
+
 
 def extract_and_transform_data(bag_file, seq_offset):
     """Extract data from a ROS bag and apply transformations based on LiDAR poses."""
@@ -114,15 +145,14 @@ def extract_and_transform_data(bag_file, seq_offset):
             #print(pose)
             # Get rotation matrix and translation vector from the lidar pose
             if not np.isnan(pose).any():
-                rotation_matrix = quaternion_to_rotation_matrix([pose[3], pose[4], pose[5], pose[6]])  # w x y z 
-                translation_vector = np.array([pose[0], pose[1], pose[2]])
+                euler_angles = quaternion_to_euler([pose[6], pose[3], pose[4], pose[5]])  # w x y z 
+                transformation_matrix_lidar = create_transformation_matrix(*euler_angles, pose[0], pose[1], pose[2])
                 index2=-1
                 for point in reshaped_cloud:
                     #print('Transforming point:', point)
                     index2+=1
-                    a = np.array([point[0], point[1], point[2]])
-                    b = apply_transformation(a, rotation_matrix, translation_vector)
-                    transformed_point_clouds.append(b)
+                    a = np.array([point[0], point[1], point[2], 1])
+                    transformed_point_clouds.append(np.dot(a, transformation_matrix_lidar))
                     print('Transform done for index', index, 'and point', index2)
                     #print('Transformed point:', transformed_point_clouds[-1])
             else:
