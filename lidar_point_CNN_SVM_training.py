@@ -22,7 +22,6 @@ from keras.callbacks import Callback
 from mpl_toolkits.mplot3d import Axes3D  # This is needed for '3d' projection
 from scipy.spatial.transform import Rotation as R
 
-
 class TrainingLogger(Callback):
     def on_epoch_end(self, epoch, logs=None):
         if logs is not None:
@@ -54,60 +53,17 @@ def calculate_mean_percentage_error(actual, predicted):
     mean_percentage_errors = np.mean(percentage_errors, axis=0)
     return mean_percentage_errors
 
+def quaternion_to_rotation_matrix(quaternion):
+    """Convert quaternion to a rotation matrix."""
+    return R.from_quat(quaternion).as_matrix()
 
-
-
-
-
-
-
-
-
-
-
-
-def quaternion_to_euler(quaternion):
-    """Convert quaternion (w, x, y, z) to Euler angles (roll, pitch, yaw)."""
-    r = R.from_quat(quaternion)
-    return r.as_euler('xyz', degrees=False)  # Return Euler angles in radians
-
-def create_transformation_matrix(roll, pitch, yaw, tx, ty, tz):
-    """Create a 4x4 transformation matrix from Euler angles and translation vector."""
-    # Rotation matrices around the x, y, and z axis
-    R_x = np.array([
-        [1, 0, 0, 0],
-        [0, np.cos(roll), -np.sin(roll), 0],
-        [0, np.sin(roll), np.cos(roll), 0],
-        [0, 0, 0, 1]
-    ])
-
-    R_y = np.array([
-        [np.cos(pitch), 0, np.sin(pitch), 0],
-        [0, 1, 0, 0],
-        [-np.sin(pitch), 0, np.cos(pitch), 0],
-        [0, 0, 0, 1]
-    ])
-
-    R_z = np.array([
-        [np.cos(yaw), -np.sin(yaw), 0, 0],
-        [np.sin(yaw), np.cos(yaw), 0, 0],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1]
-    ])
-
-    # Translation matrix
-    T = np.array([
-        [1, 0, 0, tx],
-        [0, 1, 0, ty],
-        [0, 0, 1, tz],
-        [0, 0, 0, 1]
-    ])
-    # Combined rotation matrix
-    R = np.dot(np.dot(R_z, R_y), R_x)
-
-    # Full transformation matrix
-    transformation_matrix = np.dot(T, R)
-    return transformation_matrix
+def apply_transformation(point_cloud, rotation_matrix, translation_vector):
+    """Apply rotation and translation to the point cloud."""
+    # Apply rotation
+    rotated_points = np.dot(point_cloud, rotation_matrix.T)  # Note the transpose of the rotation matrix
+    # Apply translation
+    transformed_points = rotated_points + translation_vector
+    return transformed_points
 
 def extract_and_transform_data(bag_file, seq_offset):
     """Extract data from a ROS bag and apply transformations based on LiDAR poses."""
@@ -127,9 +83,8 @@ def extract_and_transform_data(bag_file, seq_offset):
                 position.x, position.y, position.z,
                 orientation.x, orientation.y, orientation.z, orientation.w
             ]
-
-    bag.close()
-
+    
+    print(len(lidar_transform_data))
     # Sync and reshape
     synced_point_clouds = []
     synced_poses = []
@@ -141,74 +96,40 @@ def extract_and_transform_data(bag_file, seq_offset):
             synced_poses.append(pose)
         else:
             synced_point_clouds.append(cloud)
-            synced_poses.append([np.nan]*7)  # Handle missing data with NaNs
+            synced_poses.append([np.nan] * 7)  # Handle missing data with NaNs
 
     # Transformation
     transformed_point_clouds = []
-    transformed_poses = []
+    index=-1
+    total_len = 0
     for cloud, pose in zip(synced_point_clouds, synced_poses):
-        # Ensure cloud length is divisible by 3
-        needed_padding = (-len(cloud) % 3)
-        if needed_padding:
-            cloud = np.pad(cloud, (0, needed_padding), 'constant', constant_values=0)
-        reshaped_cloud = cloud.reshape(-1, 3)    
-        # Get rotation matrix and translation vector from the lidar pose
-        euler_angles = quaternion_to_euler([pose[6], pose[3], pose[4], pose[5]])   #x y z w
-        transformed_poses.append(create_transformation_matrix(*euler_angles, pose[0], pose[1], pose[2]))
-        for i in range(len(cloud)):
-        # Get rotation matrix and translation vector from the point cloud
-            temp1 = (create_transformation_matrix(0, 0, 0, pose[0], pose[1], pose[2]))
-            transformed_point_clouds[i].append(np.dot(temp1, transformed_poses))
-
-
-    return transformed_point_clouds, transformed_poses
-
-
-
-
-
-
-
-
-
-def visualize_results(predicted_points, actual_points):
-    logger.info("Predicted LiDAR Points: %s", predicted_points)
-    logger.info("Actual LiDAR Points: %s", actual_points)
-
-    # Extract x, y, z coordinates
-    x_actual = actual_points[:, 0]
-    y_actual = actual_points[:, 1]
-    z_actual = actual_points[:, 2]
-    x_pred = predicted_points[:, 0]
-    y_pred = predicted_points[:, 1]
-    z_pred = predicted_points[:, 2]
-
-    # Plotting
-    plt.figure(figsize=(18, 6))
-    plt.subplot(1, 3, 1)
-    plt.scatter(x_actual, x_pred, c='blue')
-    plt.title('X Coordinates')
-    plt.xlabel('Actual')
-    plt.ylabel('Predicted')
-
-    plt.subplot(1, 3, 2)
-    plt.scatter(y_actual, y_pred, c='red')
-    plt.title('Y Coordinates')
-    plt.xlabel('Actual')
-    plt.ylabel('Predicted')
-
-    plt.subplot(1, 3, 3)
-    plt.scatter(z_actual, z_pred, c='green')
-    plt.title('Z Coordinates')
-    plt.xlabel('Actual')
-    plt.ylabel('Predicted')
-
-    plt.tight_layout()
-    plt.show()
-
-    mean_percentage_errors = calculate_mean_percentage_error(actual_points, predicted_points)
-    logger.info("Mean Percentage Errors for each element: %s", mean_percentage_errors)
-
+            index+=1
+            print('Current batch:', index)
+            total_len+=len(cloud)
+            # Ensure cloud length is divisible by 3
+            needed_padding = (-len(cloud) % 3)
+            if needed_padding:
+                cloud = np.pad(cloud, (0, needed_padding), 'constant', constant_values=0)
+            reshaped_cloud = cloud.reshape(-1, 3)
+            #print(pose)
+            # Get rotation matrix and translation vector from the lidar pose
+            if not np.isnan(pose).any():
+                rotation_matrix = quaternion_to_rotation_matrix([pose[3], pose[4], pose[5], pose[6]])  # w x y z 
+                translation_vector = np.array([pose[0], pose[1], pose[2]])
+                index2=-1
+                for point in reshaped_cloud:
+                    #print('Transforming point:', point)
+                    index2+=1
+                    a = np.array([point[0], point[1], point[2]])
+                    b = apply_transformation(a, rotation_matrix, translation_vector)
+                    transformed_point_clouds.append(b)
+                    print('Transform done for index', index, 'and point', index2)
+                    #print('Transformed point:', transformed_point_clouds[-1])
+            else:
+                raise ValueError("Missing pose data for transformation.")
+            #print(total_len)       
+    print('ALL DONE')
+    return transformed_point_clouds, synced_poses
 
 def plot3d_point_clouds(transformed_point_clouds, current_folder):
     """
@@ -221,9 +142,15 @@ def plot3d_point_clouds(transformed_point_clouds, current_folder):
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
 
+    print('Plotting...')
     # Plot each point in the transformed point clouds
+    index=-1
     for cloud in transformed_point_clouds:
-        ax.scatter(cloud[:, 0], cloud[:, 1], cloud[:, 2], alpha=0.5, color='b')
+        index+=1
+        if index < 8049:
+            print('Plotting batch:', cloud)
+            ax.scatter(cloud[0], cloud[1], cloud[2],  alpha=0.5, color='b')
+    print('Plotting done')
 
     ax.set_title('Transformed Point Clouds X-Y-Z Scatter')
     ax.set_xlabel('X')
@@ -231,7 +158,7 @@ def plot3d_point_clouds(transformed_point_clouds, current_folder):
     ax.set_zlabel('Z')
     ax.legend(['Transformed Point Clouds'])
 
-    plt.tight_layout()
+    #plt.tight_layout()
     plot_filename = os.path.join(current_folder, '3d_transformed_point_clouds_plot.png')
     plt.savefig(plot_filename)
     plt.close()  # Close the plot to free up memory and save the file
@@ -239,11 +166,6 @@ def plot3d_point_clouds(transformed_point_clouds, current_folder):
 
     # Optionally display the plot
     plt.show()
-
-# Example usage:
-# plot3d_point_clouds(transformed_clouds, current_folder)
-
-
 
 def plot2d_lidar_positions(actual, predicted):
     plt.figure(figsize=(10, 6))
@@ -269,25 +191,6 @@ def plot2d_lidar_positions(actual, predicted):
     plt.show()
     plt.close()  # Close the plot to free up memory
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def create_slfn_model():
     model = Sequential([
         #Flatten(), # Flatten the input if it is not already 1D
@@ -310,7 +213,7 @@ def create_slfn_model():
     #LOGGING
     #for layer in model.layers:
     #   logger.info(f'Layer {layer.name} - Type: {layer.__class__.__name__}, Output Shape: {layer.output_shape}, Activation: {getattr(layer, "activation", None).__name__ if hasattr(layer, "activation") else "N/A"}')
-    logger.info("optimizer:", model.optimizer, "loss:", model.loss, "metrics:", model.metrics_names, "learning rate:", model.optimizer.lr)
+    #logger.info("optimizer:", model.optimizer, "loss:", model.loss, "metrics:", model.metrics_names, "learning rate:", model.optimizer.lr)
 
     return model
 
@@ -318,7 +221,6 @@ def add_channel_dimension(batch):
     # Convert list to a numpy array and add a new axis at the end to act as the channel dimension
     batch_array = np.array([np.array(x) for x in batch])
     return np.expand_dims(batch_array, axis=-1)
-
 
 def prepare_batches_for_training(point_clouds, batch_size):
     batched_data = []
@@ -359,8 +261,14 @@ def train_and_predict(bag_file):
 
     # Create and compile the model
     model = create_slfn_model()
-"""
-    model.fit(X_train, y_train, batch_size=32, epochs=100, verbose=1, validation_data=((X_test), y_test), callbacks=[TrainingLogger()])
+    model.fit(X_train, y_train, batch_size=32, epochs=10, verbose=1, validation_data=((X_test), y_test), callbacks=[TrainingLogger()])
+
+    # Ensure the data is in the correct numpy array format
+    X_train = np.array(X_train)
+    X_test = np.array(X_test)
+    y_train = np.array([np.array(y) for y in y_train])
+    y_test = np.array([np.array(y) for y in y_test])
+
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))
     logger.info("Model saved to %s", os.path.join(current_folder, 'slfn_model.h5'))
@@ -382,19 +290,4 @@ def train_and_predict(bag_file):
         #val_loss = model.evaluate(X_test, y_test, verbose=1)
         #print(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
 
-"""
-
-
-
 train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag')
-
-
-#visualize_results(predicted_points, actual_points)
-
-
-
-
-            #THE TWO TOPICS IN THE BAG FILE ARE:
-            # /lidar_localizer/lidar_pose                                                               300 msgs    : geometry_msgs/PoseWithCovarianceStamped               
-            #/lidar_localizer/aligned_cloud                                                            300 msgs    : sensor_msgs/PointCloud2                               
-
