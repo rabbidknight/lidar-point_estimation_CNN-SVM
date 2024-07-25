@@ -17,15 +17,27 @@ def plot3d_point_clouds(transformed_point_clouds, current_folder):
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
 
+    index=0
     print('Plotting...')
     # Plot each point in the transformed point clouds
-    index=-1
-    for cloud in transformed_point_clouds:
-        index+=1
-        if index < 150000:
-            if index % 1000 == 0:
-                print('Current 1000 plotted:', index)
-            ax.scatter(cloud[0], cloud[1], cloud[2],  alpha=0.5, color='b')
+
+    x_coords = []
+    y_coords = []
+    z_coords = []
+    index2=-1
+    for point in transformed_point_clouds:
+            index2+=1
+            if index2 < 30000:
+    
+                x_coords.append(point[0])
+                y_coords.append(point[1])
+                z_coords.append(point[2])
+
+                
+                
+    
+    ax.scatter(x_coords, y_coords, z_coords, alpha=0.1, color='b')
+
     print('Plotting done')
 
     ax.set_title('Transformed Point Clouds X-Y-Z Scatter')
@@ -38,7 +50,7 @@ def plot3d_point_clouds(transformed_point_clouds, current_folder):
     plot_filename = os.path.join(current_folder, '3d_transformed_point_clouds_plot.png')
     plt.savefig(plot_filename)
     plt.close()  # Close the plot to free up memory and save the file
-    logger.info(f"3D point cloud plots saved to {plot_filename}")
+    print(f"3D point cloud plots saved to {plot_filename}")
 
     # Optionally display the plot
     plt.show()

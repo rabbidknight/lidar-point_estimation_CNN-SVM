@@ -9,7 +9,7 @@ from keras.models import Sequential
 from keras.layers import Dense, BatchNormalization, Dropout
 from keras.optimizers import Adam
 from keras.callbacks import Callback
-from main.train_the_final_data import train_and_predict
+from train_the_final_data import train_and_predict
 
 
 class TrainingLogger(Callback):

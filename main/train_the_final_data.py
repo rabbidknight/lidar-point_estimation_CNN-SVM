@@ -9,11 +9,8 @@ from keras.models import Sequential
 from keras.layers import Dense, BatchNormalization, Dropout
 from keras.optimizers import Adam
 from keras.callbacks import Callback
-from main.get_data import extract_and_transform_data
-from main.main import TrainingLogger
-from main.transform_the_data import create_transformation_matrix
-from main.plot_the_final_data import plot3d_point_clouds, plot2d_lidar_positions
-from main.transform_the_data import quaternion_to_euler
+from get_data import extract_and_transform_data
+from plot_the_final_data import plot3d_point_clouds, plot2d_lidar_positions
 
 
 def create_slfn_model():
@@ -84,15 +81,15 @@ def train_and_predict(bag_file, current_folder):
     # Split the data into training and test sets
     X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
 
-    # Create and compile the model
-    model = create_slfn_model()
-    model.fit(X_train, y_train, batch_size=32, epochs=10, verbose=1, validation_data=((X_test), y_test), callbacks=[TrainingLogger()])
-
     # Ensure the data is in the correct numpy array format
     X_train = np.array(X_train)
     X_test = np.array(X_test)
     y_train = np.array([np.array(y) for y in y_train])
     y_test = np.array([np.array(y) for y in y_test])
+
+    # Create and compile the model
+    model = create_slfn_model()
+    model.fit(X_train, y_train, batch_size=32, epochs=10, verbose=1, validation_data=((X_test), y_test))
 
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))

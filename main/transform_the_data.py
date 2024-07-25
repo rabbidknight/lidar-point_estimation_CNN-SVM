@@ -35,4 +35,5 @@ def create_transformation_matrix(roll, pitch, yaw, tx, ty, tz):
     # Combined rotation matrix
     R = np.dot(np.dot(R_z, R_y), R_x)
     transformation_matrix = np.hstack( (R, (np.array ([[tx], [ty], [tz]]) )) ) # Combine rotation matrix and translation vector
+    transformation_matrix = np.vstack([transformation_matrix, [0, 0, 0, 1]])
     return transformation_matrix
