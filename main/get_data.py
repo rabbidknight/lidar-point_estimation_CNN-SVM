@@ -82,8 +82,8 @@ def extract_and_transform_data(bag_file, seq_offset):
             index1+=1
             #print('Current batch transforming:', index1)
 
-            original_cloud_size = len(cloud)  # Number of points in the original cloud
-            transformed_points_count = 0  # This will count how many points are actually processed
+            #original_cloud_size = len(cloud)  # Number of points in the original cloud
+            #transformed_points_count = 0  # This will count how many points are actually processed
 
             reshaped_cloud = cloud.reshape(-1, 3)
 
@@ -99,12 +99,12 @@ def extract_and_transform_data(bag_file, seq_offset):
                     transformed_point_clouds.append(b) # Append the transformed point cloud
                     #print('Transform done for index', index1, 'and point', index2)
                     #print('Transformed point:', transformed_point_clouds[-1])
-                    transformed_points_count += 1
+                    #transformed_points_count += 1
             else:
                 raise ValueError("Missing pose data for transformation.")
-            print(f"Processed cloud with {original_cloud_size} points, transformed into {transformed_points_count} points")
+            #print(f"Processed cloud with {original_cloud_size} points, transformed into {transformed_points_count} points")
     print('ALL DONE')
-    print("transformed_point_clouds", len(transformed_point_clouds))
+
 
 
     return transformed_point_clouds, synced_poses2

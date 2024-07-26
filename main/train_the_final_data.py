@@ -68,10 +68,12 @@ def prepare_batches_for_training(point_clouds, batch_size):
     return batched_data
 
 def manual_split(data, labels, test_ratio=0.15):
-    total_samples = len(data)
-    split_idx = int(total_samples * (1 - test_ratio))
-    X_train, X_test = data[:split_idx], data[split_idx:]
-    y_train, y_test = labels[:split_idx], labels[split_idx:]
+    print("Length of data:", len(data))
+    print("Length of labels:", len(labels))
+    split_data = int(len(data)* (1 - test_ratio))
+    split_labels = int(len(labels) * (1 - test_ratio))
+    X_train, X_test = data[:split_data], data[split_data:]
+    y_train, y_test = labels[:split_labels], labels[split_labels:]
     return X_train, X_test, y_train, y_test
 
 def train_and_predict(bag_file, current_folder):
@@ -94,7 +96,7 @@ def train_and_predict(bag_file, current_folder):
     print("y_test:", y_test.shape)
     # Create and compile the model
     model = create_slfn_model()
-    model.fit(X_train, y_train, batch_size=32, epochs=10, verbose=1, validation_data=((X_test), y_test))
+    model.fit(X_train, y_train, batch_size=1, epochs=10, verbose=1)
 
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))
