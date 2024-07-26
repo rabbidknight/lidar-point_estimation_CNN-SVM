@@ -12,36 +12,32 @@ def extract_and_transform_data(bag_file, seq_offset):
     point_cloud_data = {}
     lidar_transform_data = {}
 
+    # Define byte format for a single point, considering only x, y, z coordinates (each 4 bytes)
+    point_format = '<fff'  # little-endian, three floats (x, y, z)
+    point_step = 16  # Each point occupies 16 bytes in the data array
+
     # Extraction step
     for topic, msg, t in bag.read_messages():
         if topic == "/lidar_localizer/aligned_cloud":
-            # Initialize an empty list to hold the point cloud data
+            num_points = msg.width  # Total number of points per message
             points = []
-            # Each point consists of x, y, z, each as float32, and possibly some padding
-            point_step = msg.point_step  # This should be 16 based on your example
-              #field_offsets = {field.name: field.offset for field in msg.fields}
-            data_bytes = msg.data
-            
-            # Iterate through each point in the data_bytes
-            for i in range(0, len(data_bytes), point_step):
-                x = struct.unpack_from('<f', data_bytes, offset=i + 0)[0]
-                y = struct.unpack_from('<f', data_bytes, offset=i + 4)[0]
-                z = struct.unpack_from('<f', data_bytes, offset=i + 8)[0]
-
-                # Append the x, y, z coordinates as a tuple to the points list
-                points.append((x, y, z))
-            
-            # Convert the list of points to a numpy array for better handling
-            point_cloud_data[msg.header.seq] = np.array(points)
-
+            # Decode point data, skipping the irrelevant bytes
+            for i in range(num_points):
+                offset = i * point_step  # Calculate offset for each point
+                point_data = msg.data[offset:offset + 12]  # Extract only the first 12 bytes (x, y, z)
+                point = struct.unpack(point_format, point_data)
+                points.append(point)
+            point_cloud_data[msg.header.seq] = np.array(points)  # Convert list of tuples to numpy array
         elif topic == "/lidar_localizer/lidar_pose":
             position = msg.pose.pose.position
             orientation = msg.pose.pose.orientation
-            # Store the pose data as a list including the position and orientation
             lidar_transform_data[msg.header.seq] = [
                 position.x, position.y, position.z,
                 orientation.x, orientation.y, orientation.z, orientation.w
             ]
+
+    bag.close()
+    
 
     # Sync and reshape
     synced_point_clouds = []
@@ -52,9 +48,10 @@ def extract_and_transform_data(bag_file, seq_offset):
             pose = lidar_transform_data[corresponding_pose_seq]
             synced_point_clouds.append(cloud)
             synced_poses.append(pose)
+
         else:
             print(f"Skipping point cloud {seq} because corresponding pose is missing.")
-
+    print(len(synced_point_clouds[0]))
     index10=-1
 
     # Transformation
@@ -64,7 +61,6 @@ def extract_and_transform_data(bag_file, seq_offset):
     for cloud, pose in zip(synced_point_clouds, synced_poses):
             index1+=1
             print('Current batch:', index1)
-            total_len+=len(cloud)
             # Ensure cloud length is divisible by 3
             needed_padding = (-len(cloud) % 3)
             if needed_padding:
@@ -86,4 +82,4 @@ def extract_and_transform_data(bag_file, seq_offset):
                 raise ValueError("Missing pose data for transformation.")
             #print(total_len)       
     print('ALL DONE')
-    return synced_point_clouds, synced_poses
+    return transformed_point_clouds, synced_poses

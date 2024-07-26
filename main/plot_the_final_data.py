@@ -4,38 +4,39 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import logging
 import datetime
-from sklearn import logger
 
 def plot3d_point_clouds(transformed_point_clouds, current_folder):
     """
-    Plot transformed 3D point clouds.
+    Plot transformed 3D point clouds, excluding points that are too distant.
 
     Args:
     transformed_point_clouds (list of np.array): List of point clouds after transformation.
     current_folder (str): Path to the directory where plot should be saved.
+    distance_threshold (float): Maximum allowed distance from the origin for points to be plotted.
     """
+
+    distance_threshold_xmax = 1100
+    distance_threshold_ymax = 100
+    distance_threshold_zmax = 500
+    distance_threshold_xmin = 550
+    distance_threshold_ymin = -200
+    distance_threshold_zmin = -200
+
     fig = plt.figure(figsize=(15, 10))
     ax = fig.add_subplot(111, projection='3d')
-
-    index=0
-    print('Plotting...')
-    # Plot each point in the transformed point clouds
 
     x_coords = []
     y_coords = []
     z_coords = []
-    index2=-1
+    index1=-1
     for point in transformed_point_clouds:
-            index2+=1
-            if index2 < 30000:
-    
-                x_coords.append(point[0])
-                y_coords.append(point[1])
-                z_coords.append(point[2])
-
-                
-                
-    
+        x, y, z = point[0], point[1], point[2]
+        if index1<975000 and index1>950880:
+            if (x) <= distance_threshold_xmax and (y) <= distance_threshold_ymax and (z) <= distance_threshold_zmax and x >= distance_threshold_xmin and y >= distance_threshold_ymin and z >= distance_threshold_zmin:
+                x_coords.append(x)
+                y_coords.append(y)
+                z_coords.append(z)
+        index1+=1
     ax.scatter(x_coords, y_coords, z_coords, alpha=0.1, color='b')
 
     print('Plotting done')
@@ -46,7 +47,7 @@ def plot3d_point_clouds(transformed_point_clouds, current_folder):
     ax.set_zlabel('Z')
     ax.legend(['Transformed Point Clouds'])
 
-    #plt.tight_layout()
+    # Save the plot to the directory
     plot_filename = os.path.join(current_folder, '3d_transformed_point_clouds_plot.png')
     plt.savefig(plot_filename)
     plt.close()  # Close the plot to free up memory and save the file
@@ -54,6 +55,8 @@ def plot3d_point_clouds(transformed_point_clouds, current_folder):
 
     # Optionally display the plot
     plt.show()
+
+
 
 def plot2d_lidar_positions(actual, predicted, current_folder):
     plt.figure(figsize=(10, 6))
