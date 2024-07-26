@@ -15,18 +15,23 @@ def extract_and_transform_data(bag_file, seq_offset):
     # Define byte format for a single point, considering only x, y, z coordinates (each 4 bytes)
     point_format = '<fff'  # little-endian, three floats (x, y, z)
     point_step = 16  # Each point occupies 16 bytes in the data array
-
+    num_points = []  # Initialize point size, but its an array as it changes per point cloud.
+    
     # Extraction step
     for topic, msg, t in bag.read_messages():
         if topic == "/lidar_localizer/aligned_cloud":
-            num_points = msg.width  # Total number of points per message
+            current_num_points = msg.width  # Total number of points per message
+            num_points.append(current_num_points)  # Store the number of points for this message
             points = []
             # Decode point data, skipping the irrelevant bytes
-            for i in range(num_points):
+            for i in range(current_num_points):
                 offset = i * point_step  # Calculate offset for each point
-                point_data = msg.data[offset:offset + 12]  # Extract only the first 12 bytes (x, y, z)
-                point = struct.unpack(point_format, point_data)
-                points.append(point)
+                if offset + 12 <= len(msg.data):
+                    point_data = msg.data[offset:offset + 12]  # Extract only the first 12 bytes (x, y, z)
+                    point = struct.unpack(point_format, point_data)
+                    points.append(point)
+                else:
+                    print("Data buffer does not have enough bytes for a full point extraction.")
             point_cloud_data[msg.header.seq] = np.array(points)  # Convert list of tuples to numpy array
         elif topic == "/lidar_localizer/lidar_pose":
             position = msg.pose.pose.position
@@ -37,35 +42,51 @@ def extract_and_transform_data(bag_file, seq_offset):
             ]
 
     bag.close()
-    
+    print("Point clouds extracted:", len(point_cloud_data))
+    print("Lidar poses extracted:", len(lidar_transform_data))
 
     # Sync and reshape
     synced_point_clouds = []
+    synced_point_clouds2 = []   #This is just for catching the total length, 
+    #to be used in the training. Dont mind this.
     synced_poses = []
+    synced_poses2 = [] #This is just for catching the total length,
+    #to be used in the training. Dont mind this.
     for seq, cloud in point_cloud_data.items():
         corresponding_pose_seq = seq + seq_offset
         if corresponding_pose_seq in lidar_transform_data:
             pose = lidar_transform_data[corresponding_pose_seq]
-            synced_point_clouds.append(cloud)
-            synced_poses.append(pose)
+            if len(cloud) % 3 != 0:
+                excess = len(cloud) % 3
+                cloud = cloud[:-excess]  # Remove the last few points to make the length divisible by 3
 
+            pose_array_for_training = np.array([pose] * len(cloud))  # Clone the pose for each point in the cloud
+            synced_poses2.extend(pose_array_for_training) # Flatten the list of poses, for training
+            synced_point_clouds.append(cloud)  
+            synced_point_clouds2.extend(cloud) # Flatten the list of points, for training
+            synced_poses.append(pose)
         else:
             print(f"Skipping point cloud {seq} because corresponding pose is missing.")
-    print(len(synced_point_clouds[0]))
-    index10=-1
+            print("also ending the program because go fix it")
+            exit()
 
-    # Transformation
+    print("length of synced_point_clouds", len(synced_point_clouds))
+    print("length of synced_point_clouds2", len(synced_point_clouds2))
+    print("length of synced_poses", len(synced_poses))
+    print("length of synced_poses2", len(synced_poses2))
+    
+    # Transformation 
     transformed_point_clouds = []
     index1=-1
-    total_len = 0
     for cloud, pose in zip(synced_point_clouds, synced_poses):
             index1+=1
-            print('Current batch:', index1)
-            # Ensure cloud length is divisible by 3
-            needed_padding = (-len(cloud) % 3)
-            if needed_padding:
-                cloud = np.pad(cloud, (0, needed_padding), 'constant', constant_values=0)
+            #print('Current batch transforming:', index1)
+
+            original_cloud_size = len(cloud)  # Number of points in the original cloud
+            transformed_points_count = 0  # This will count how many points are actually processed
+
             reshaped_cloud = cloud.reshape(-1, 3)
+
             # Get rotation matrix and translation vector from the lidar pose
             if not np.isnan(pose).any():
                 euler_angles = quaternion_to_euler([pose[6], pose[3], pose[4], pose[5]])  # w x y z 
@@ -78,8 +99,12 @@ def extract_and_transform_data(bag_file, seq_offset):
                     transformed_point_clouds.append(b) # Append the transformed point cloud
                     #print('Transform done for index', index1, 'and point', index2)
                     #print('Transformed point:', transformed_point_clouds[-1])
+                    transformed_points_count += 1
             else:
                 raise ValueError("Missing pose data for transformation.")
-            #print(total_len)       
+            print(f"Processed cloud with {original_cloud_size} points, transformed into {transformed_points_count} points")
     print('ALL DONE')
-    return transformed_point_clouds, synced_poses
+    print("transformed_point_clouds", len(transformed_point_clouds))
+
+
+    return transformed_point_clouds, synced_poses2

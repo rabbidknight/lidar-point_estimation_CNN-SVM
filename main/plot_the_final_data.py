@@ -15,7 +15,7 @@ def plot3d_point_clouds(transformed_point_clouds, current_folder):
     distance_threshold (float): Maximum allowed distance from the origin for points to be plotted.
     """
 
-    distance_threshold_xmax = 1100
+    distance_threshold_xmax = 1200
     distance_threshold_ymax = 100
     distance_threshold_zmax = 500
     distance_threshold_xmin = 550
