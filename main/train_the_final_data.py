@@ -16,15 +16,15 @@ from plot_the_final_data import plot3d_point_clouds, plot2d_lidar_positions
 def create_slfn_model():
     model = Sequential([
         #Flatten(), # Flatten the input if it is not already 1D
-        Dense(16, activation='relu'),  # Hidden layer with 16 units and ReLU activation
+        Dense(8, activation='relu'),  # Hidden layer with 16 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
-        Dense(32, activation='relu'),  # Hidden layer with 32 units and ReLU activation
+        Dense(16, activation='relu'),  # Hidden layer with 32 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
-        Dense(64, activation='relu'),  # Hidden layer with 64 units and ReLU activation
+        Dense(32, activation='relu'),  # Hidden layer with 64 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
-        Dense(32, activation='relu'),  # Hidden layer with 32 units and ReLU activation
+        Dense(16, activation='relu'),  # Hidden layer with 32 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
-        Dense(16, activation='relu'),  # Hidden layer with 16 units and ReLU activation
+        Dense(8, activation='relu'),  # Hidden layer with 16 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
         Dropout(0.2),  # Dropout layer with 20% rate
         Dense(7, activation='linear')  # Output layer with 7 units (no activation for regression)
@@ -79,9 +79,10 @@ def manual_split(data, labels, test_ratio=0.15):
 def train_and_predict(bag_file, current_folder):
     seq_offset = 25  # Offset to synchronize point clouds and poses
     point_clouds, poses = extract_and_transform_data(bag_file, seq_offset)
-    #plot3d_point_clouds(point_clouds, current_folder)
+    #plot3d_point_clouds(point_clouds, poses, current_folder)
     # Split the data into training and test sets
     X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
+
 
     # Ensure the data is in the correct numpy array format
     X_train = np.array(X_train)
@@ -95,8 +96,10 @@ def train_and_predict(bag_file, current_folder):
     print("X_test:", X_test.shape)
     print("y_test:", y_test.shape)
     # Create and compile the model
+
+    
     model = create_slfn_model()
-    model.fit(X_train, y_train, batch_size=1, epochs=10, verbose=1)
+    model.fit(X_train, y_train, batch_size=1, epochs=5, validation_data=(X_test, y_test), verbose=1)
 
     # Save model
     model.save(os.path.join(current_folder, 'slfn_model.h5'))
@@ -115,3 +118,4 @@ def train_and_predict(bag_file, current_folder):
         # Evaluate the model at the end of each epoch
         #val_loss = model.evaluate(X_test, y_test, verbose=1)
         #print(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
+    

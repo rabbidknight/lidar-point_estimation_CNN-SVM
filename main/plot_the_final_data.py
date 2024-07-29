@@ -5,7 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import logging
 import datetime
 
-def plot3d_point_clouds(transformed_point_clouds, current_folder):
+def plot3d_point_clouds(transformed_point_clouds, lidar_positions, current_folder):
     """
     Plot transformed 3D point clouds, excluding points that are too distant.
 
@@ -14,37 +14,50 @@ def plot3d_point_clouds(transformed_point_clouds, current_folder):
     current_folder (str): Path to the directory where plot should be saved.
     distance_threshold (float): Maximum allowed distance from the origin for points to be plotted.
     """
-
-    distance_threshold_xmax = 1200
+    '''
+     distance_threshold_xmax = 1200
     distance_threshold_ymax = 100
     distance_threshold_zmax = 500
     distance_threshold_xmin = 550
     distance_threshold_ymin = -200
     distance_threshold_zmin = -200
-
+    '''
+    print('Plotting point clouds...')
     fig = plt.figure(figsize=(15, 10))
-    ax = fig.add_subplot(111, projection='3d')
+    ax = fig.add_subplot(111)
 
     x_coords = []
     y_coords = []
     z_coords = []
+    x_lidar = []
+    y_lidar = []
     index1=-1
     for point in transformed_point_clouds:
         x, y, z = point[0], point[1], point[2]
-        if index1<975000 and index1>950880:
-            if (x) <= distance_threshold_xmax and (y) <= distance_threshold_ymax and (z) <= distance_threshold_zmax and x >= distance_threshold_xmin and y >= distance_threshold_ymin and z >= distance_threshold_zmin:
-                x_coords.append(x)
-                y_coords.append(y)
-                z_coords.append(z)
+        #if (x) <= distance_threshold_xmax and (y) <= distance_threshold_ymax and (z) <= distance_threshold_zmax and x >= distance_threshold_xmin and y >= distance_threshold_ymin and z >= distance_threshold_zmin:
+        x_coords.append(x)
+        y_coords.append(y)
+        #z_coords.append(0)
         index1+=1
-    ax.scatter(x_coords, y_coords, z_coords, alpha=0.1, color='b')
+    ax.scatter(x_coords, y_coords, alpha=0.01, color='b')
 
-    print('Plotting done')
+    print('Plotting point clouds done')
+
+    print('Plotting lidar...')
+    # Scatter LiDAR positions
+    for pos in lidar_positions:
+        px, py = pos[0], pos[1]
+        x_lidar.append(px)
+        y_lidar.append(py)
+    ax.scatter(x_lidar,y_lidar, color='red', s=10)  # Red color and larger size for LiDAR positions
+
+
+    print('Plotting lidar done')
 
     ax.set_title('Transformed Point Clouds X-Y-Z Scatter')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
+    #ax.set_zlabel('Z')
     ax.legend(['Transformed Point Clouds'])
 
     # Save the plot to the directory
