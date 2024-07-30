@@ -70,7 +70,7 @@ def plot3d_point_clouds(transformed_point_clouds, lidar_positions, current_folde
     plt.show()
 
 
-
+print('Plotting 2D comparison...')
 def plot2d_lidar_positions(actual, predicted, current_folder):
     plt.figure(figsize=(10, 6))
     for act in actual:
@@ -88,7 +88,7 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
     plt.ylabel('Y Coordinate')
     plt.title('2D Lidar Positions')
     plt.legend()
-
+    print
     # Save the plot in the unique folder
     plt.savefig(os.path.join(current_folder, f'lidar_positions.png'))
 

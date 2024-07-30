@@ -22,6 +22,7 @@ def logger_prep():
     current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     current_folder = f"test_logs/slfn_test/without-scipy/slfn_test__{current_time}"
     os.makedirs(current_folder, exist_ok=True)  # Create the directory if it doesn't exist
+    #current_folder = os.getcwd()
 
     # Setup logging
     logger = logging.getLogger('LidarTestLogger')

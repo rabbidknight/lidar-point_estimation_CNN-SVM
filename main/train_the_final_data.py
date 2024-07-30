@@ -20,17 +20,17 @@ def create_slfn_model():
         BatchNormalization(),  # Batch normalization layer
         Dense(16, activation='relu'),  # Hidden layer with 32 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
-        Dense(32, activation='relu'),  # Hidden layer with 64 units and ReLU activation
+        Dense(32, activation='relu'),  # Hidden layer with 16 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
-        Dense(16, activation='relu'),  # Hidden layer with 32 units and ReLU activation
+        Dense(16, activation='linear'),  # Output layer with 7 units (no activation for regression)
         BatchNormalization(),  # Batch normalization layer
         Dense(8, activation='relu'),  # Hidden layer with 16 units and ReLU activation
         BatchNormalization(),  # Batch normalization layer
-        Dropout(0.2),  # Dropout layer with 20% rate
+        Dropout(0.1),  # Dropout layer with 20% rate
         Dense(7, activation='linear')  # Output layer with 7 units (no activation for regression)
     ])
 
-    model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error')
+    model.compile(optimizer=Adam(learning_rate=0.0015), loss='mean_squared_error')
 
     #LOGGING
     #for layer in model.layers:
@@ -76,13 +76,26 @@ def manual_split(data, labels, test_ratio=0.15):
     y_train, y_test = labels[:split_labels], labels[split_labels:]
     return X_train, X_test, y_train, y_test
 
-def train_and_predict(bag_file, current_folder):
+from keras.models import load_model
+
+
+def predict(current_folder, x, y, model_path):
+    # Load the pre-trained model
+    model = load_model(model_path)
+
+    # Ensure the input data is correctly shaped
+    x = np.array(x).reshape(-1, 3, 1)  # Adjust based on the expected model input
+    predictions = model.predict(x)
+
+    # Optionally visualize predictions
+    plot2d_lidar_positions(y, predictions, current_folder)  # Call plotting function
+
+def train_and_predict(bag_file, current_folder, use_pretrained=False):
     seq_offset = 25  # Offset to synchronize point clouds and poses
     point_clouds, poses = extract_and_transform_data(bag_file, seq_offset)
-    #plot3d_point_clouds(point_clouds, poses, current_folder)
+
     # Split the data into training and test sets
     X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
-
 
     # Ensure the data is in the correct numpy array format
     X_train = np.array(X_train)
@@ -90,32 +103,23 @@ def train_and_predict(bag_file, current_folder):
     y_train = np.array([np.array(y) for y in y_train])
     y_test = np.array([np.array(y) for y in y_test])
 
+
     print("Shapes:")
     print("X_train:", X_train.shape)
     print("y_train:", y_train.shape)
     print("X_test:", X_test.shape)
     print("y_test:", y_test.shape)
-    # Create and compile the model
 
-    
-    model = create_slfn_model()
-    model.fit(X_train, y_train, batch_size=1, epochs=5, validation_data=(X_test, y_test), verbose=1)
+    if use_pretrained:
+        model_path = os.path.join(current_folder, 'slfn_model.h5')
+        predict(current_folder, X_test, y_test, model_path)
+    else:
+        # Create, compile and train the model
+        model = create_slfn_model()
+        model.fit(X_train, y_train, batch_size=1, epochs=8, validation_data=(X_test, y_test), verbose=1)
+        model.save(os.path.join(current_folder, 'slfn_model.h5'))
+        print("Model saved to:", os.path.join(current_folder, 'slfn_model.h5'))
 
-    # Save model
-    model.save(os.path.join(current_folder, 'slfn_model.h5'))
-    logger.info("Model saved to %s", os.path.join(current_folder, 'slfn_model.h5'))
+        # After training, predict on the test set
+        predict(current_folder, X_test, y_test, os.path.join(current_folder, 'slfn_model.h5'))
 
-    # After training, predict on the test set and handle each test point cloud individually
-    predictions = []
-    for test_point_cloud in (X_test):
-        print("Number of point clouds in X_test:", len(X_test))
-        test_point_cloud = test_point_cloud[np.newaxis, ..., np.newaxis]  # Add necessary dimensions
-        prediction = model.predict(test_point_cloud)
-        print(f"Prediction shape: {prediction.shape}")  # Check the shape of each prediction
-        predictions.append(prediction)  # Append the single prediction result
-
-    plot2d_lidar_positions(y_test, predictions, current_folder)  # Call plotting function
-        # Evaluate the model at the end of each epoch
-        #val_loss = model.evaluate(X_test, y_test, verbose=1)
-        #print(f"Epoch {epoch+1}, Validation Loss: {val_loss}")
-    
