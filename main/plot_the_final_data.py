@@ -70,12 +70,21 @@ def plot3d_point_clouds(transformed_point_clouds, lidar_positions, current_folde
     plt.show()
 
 
-print('Plotting 2D comparison...')
 def plot2d_lidar_positions(actual, predicted, current_folder):
     plt.figure(figsize=(10, 6))
+    print('Plotting 2D comparison now:')
+    x_pred = []
+    y_pred = []
+    x_actual = []
+    y_actual = []
+
+    print("Plotting the actuals...:", actual)
     for act in actual:
-        plt.scatter(act[0], act[1], color='blue', label='Actual' if act is actual[0] else "")  # Only label the first point to avoid duplicate labels
+        x_actual.append(act[0])
+        y_actual.append(act[1])
+    plt.scatter(x_actual, y_actual, color='blue', label='Actual' if act is actual[0] else "")  # Only label the first point to avoid duplicate labels
     
+    print("Plotting the predictions...:", predicted)
     for pred in predicted:
         if pred.ndim > 1 and pred.shape[1] >= 2:  # Ensure pred is at least 2D and has at least two columns
             plt.scatter(pred[0, 0], pred[0, 1], color='red', label='Predicted' if pred is predicted[0] else "")  # pred[0, 0] and pred[0, 1] for first row's x and y
@@ -84,6 +93,11 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
         else:
             print(f"Unexpected prediction shape or size: {pred.shape}")
 
+        x_pred.append(pred[0, 0])
+        y_pred.append(pred[0, 1])
+                
+    plt.scatter(x_pred, y_pred, color='red', label='Predicted' if pred is predicted[0] else "")
+
     plt.xlabel('X Coordinate')
     plt.ylabel('Y Coordinate')
     plt.title('2D Lidar Positions')
@@ -91,6 +105,6 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
     print
     # Save the plot in the unique folder
     plt.savefig(os.path.join(current_folder, f'lidar_positions.png'))
-
+    print("PLotting finished. 2D Lidar position plot saved to:", os.path.join(current_folder, f'lidar_positions.png'))
     plt.show()
     plt.close()  # Close the plot to free up memory

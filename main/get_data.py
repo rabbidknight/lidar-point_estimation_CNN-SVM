@@ -21,8 +21,8 @@ def extract_and_transform_data(bag_file, seq_offset):
     # Extraction step
     for topic, msg, t in bag.read_messages():
         if topic == "/lidar_localizer/aligned_cloud":
-            if last_timestamp != msg.header.stamp:
-                last_timestamp = msg.header.stamp
+            #if last_timestamp != msg.header.stamp:
+                #last_timestamp = msg.header.stamp
                 current_num_points = msg.width
                 points = []
                 for i in range(current_num_points):

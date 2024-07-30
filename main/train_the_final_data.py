@@ -11,22 +11,11 @@ from keras.optimizers import Adam
 from keras.callbacks import Callback
 from get_data import extract_and_transform_data
 from plot_the_final_data import plot3d_point_clouds, plot2d_lidar_positions
-
+from keras.callbacks import ReduceLROnPlateau
 
 def create_slfn_model():
     model = Sequential([
         #Flatten(), # Flatten the input if it is not already 1D
-        Dense(8, activation='relu'),  # Hidden layer with 16 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dense(16, activation='relu'),  # Hidden layer with 32 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dense(32, activation='relu'),  # Hidden layer with 16 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dense(16, activation='linear'),  # Output layer with 7 units (no activation for regression)
-        BatchNormalization(),  # Batch normalization layer
-        Dense(8, activation='relu'),  # Hidden layer with 16 units and ReLU activation
-        BatchNormalization(),  # Batch normalization layer
-        Dropout(0.1),  # Dropout layer with 20% rate
         Dense(7, activation='linear')  # Output layer with 7 units (no activation for regression)
     ])
 
@@ -90,7 +79,7 @@ def predict(current_folder, x, y, model_path):
     # Optionally visualize predictions
     plot2d_lidar_positions(y, predictions, current_folder)  # Call plotting function
 
-def train_and_predict(bag_file, current_folder, use_pretrained=False):
+def train_and_predict(bag_file, current_folder, use_pretrained=True):
     seq_offset = 25  # Offset to synchronize point clouds and poses
     point_clouds, poses = extract_and_transform_data(bag_file, seq_offset)
 
@@ -116,7 +105,12 @@ def train_and_predict(bag_file, current_folder, use_pretrained=False):
     else:
         # Create, compile and train the model
         model = create_slfn_model()
-        model.fit(X_train, y_train, batch_size=1, epochs=8, validation_data=(X_test, y_test), verbose=1)
+        # Define the ReduceLROnPlateau callback
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=2, min_lr=0.00001, verbose=1)
+        
+        # Train the model with the callback
+        model.fit(X_train, y_train, batch_size=1, epochs=5, validation_data=(X_test, y_test), verbose=1, callbacks=[reduce_lr])
+
         model.save(os.path.join(current_folder, 'slfn_model.h5'))
         print("Model saved to:", os.path.join(current_folder, 'slfn_model.h5'))
 
