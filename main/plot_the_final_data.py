@@ -86,12 +86,6 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
     
     print("Plotting the predictions...:", predicted)
     for pred in predicted:
-        if pred.ndim > 1 and pred.shape[1] >= 2:  # Ensure pred is at least 2D and has at least two columns
-            plt.scatter(pred[0, 0], pred[0, 1], color='red', label='Predicted' if pred is predicted[0] else "")  # pred[0, 0] and pred[0, 1] for first row's x and y
-        elif pred.ndim == 1 and len(pred) >= 2:  # If it's 1D but has at least two elements
-            plt.scatter(pred[0], pred[1], color='red', label='Predicted' if pred is predicted[0] else "")
-        else:
-            print(f"Unexpected prediction shape or size: {pred.shape}")
 
         x_pred.append(pred[0, 0])
         y_pred.append(pred[0, 1])
