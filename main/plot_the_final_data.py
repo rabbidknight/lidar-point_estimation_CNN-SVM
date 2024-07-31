@@ -24,7 +24,7 @@ def plot3d_point_clouds(transformed_point_clouds, lidar_positions, current_folde
     '''
     print('Plotting point clouds...')
     fig = plt.figure(figsize=(15, 10))
-    ax = fig.add_subplot(111)
+    ax = fig.add_subplot(111, projection='3d')
 
     x_coords = []
     y_coords = []
@@ -35,14 +35,15 @@ def plot3d_point_clouds(transformed_point_clouds, lidar_positions, current_folde
     for point in transformed_point_clouds:
         x, y, z = point[0], point[1], point[2]
         #if (x) <= distance_threshold_xmax and (y) <= distance_threshold_ymax and (z) <= distance_threshold_zmax and x >= distance_threshold_xmin and y >= distance_threshold_ymin and z >= distance_threshold_zmin:
-        x_coords.append(x)
+        x_coords.append(0)
         y_coords.append(y)
-        #z_coords.append(0)
+        z_coords.append(z)
         index1+=1
-    ax.scatter(x_coords, y_coords, alpha=0.01, color='b')
+    ax.scatter(x_coords, y_coords, z_coords, alpha=0.01, color='b')
 
     print('Plotting point clouds done')
 
+    """
     print('Plotting lidar...')
     # Scatter LiDAR positions
     for pos in lidar_positions:
@@ -53,11 +54,11 @@ def plot3d_point_clouds(transformed_point_clouds, lidar_positions, current_folde
 
 
     print('Plotting lidar done')
-
+    """
     ax.set_title('Transformed Point Clouds X-Y-Z Scatter')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
-    #ax.set_zlabel('Z')
+    ax.set_zlabel('Z')
     ax.legend(['Transformed Point Clouds'])
 
     # Save the plot to the directory
@@ -88,7 +89,7 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
     for pred in predicted:
 
         x_pred.append(pred[0, 0])
-        y_pred.append(pred[0, 1])
+        y_pred.append(pred[1, 0])
                 
     plt.scatter(x_pred, y_pred, color='red', label='Predicted' if pred is predicted[0] else "")
 
@@ -96,7 +97,6 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
     plt.ylabel('Y Coordinate')
     plt.title('2D Lidar Positions')
     plt.legend()
-    print
     # Save the plot in the unique folder
     plt.savefig(os.path.join(current_folder, f'lidar_positions.png'))
     print("PLotting finished. 2D Lidar position plot saved to:", os.path.join(current_folder, f'lidar_positions.png'))

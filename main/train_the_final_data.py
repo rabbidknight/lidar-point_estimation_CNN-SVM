@@ -12,6 +12,7 @@ from keras.callbacks import Callback
 from get_data import extract_and_transform_data
 from plot_the_final_data import plot3d_point_clouds, plot2d_lidar_positions
 from keras.callbacks import ReduceLROnPlateau
+from keras.models import load_model
 
 def create_slfn_model():
     model = Sequential([
@@ -33,30 +34,7 @@ def add_channel_dimension(batch):
     batch_array = np.array([np.array(x) for x in batch])
     return np.expand_dims(batch_array, axis=-1)
 
-def prepare_batches_for_training(point_clouds, batch_size):
-    batched_data = []
-
-    for i in range(0, len(point_clouds), batch_size):
-        # Extract the batch
-        batch = point_clouds[i:i + batch_size]
-
-        # Concatenate all arrays in the batch
-        concatenated = np.concatenate(batch)
-
-        # Pad the concatenated array if it's not divisible by 3
-        needed_padding = (-len(concatenated)) % 3
-        if needed_padding:
-            concatenated = np.pad(concatenated, (0, needed_padding), mode='constant')
-            logger.info(f"Batch {i // batch_size + 1} was padded with {needed_padding} zeros to make length divisible by 3.")
-
-        # Reshape the array into (x, y, z)
-        reshaped = concatenated.reshape(-1, 3)
-
-        batched_data.append(reshaped)
-
-    return batched_data
-
-def manual_split(data, labels, test_ratio=0.15):
+def manual_split(data, labels, test_ratio=0.30):
     print("Length of data:", len(data))
     print("Length of labels:", len(labels))
     split_data = int(len(data)* (1 - test_ratio))
@@ -64,9 +42,6 @@ def manual_split(data, labels, test_ratio=0.15):
     X_train, X_test = data[:split_data], data[split_data:]
     y_train, y_test = labels[:split_labels], labels[split_labels:]
     return X_train, X_test, y_train, y_test
-
-from keras.models import load_model
-
 
 def predict(current_folder, x, y, model_path):
     # Load the pre-trained model
@@ -79,10 +54,11 @@ def predict(current_folder, x, y, model_path):
     # Optionally visualize predictions
     plot2d_lidar_positions(y, predictions, current_folder)  # Call plotting function
 
-def train_and_predict(bag_file, current_folder, use_pretrained=True):
+def train_and_predict(bag_file, current_folder, use_pretrained):
     seq_offset = 25  # Offset to synchronize point clouds and poses
     point_clouds, poses = extract_and_transform_data(bag_file, seq_offset)
 
+    #plot3d_point_clouds(point_clouds, poses, current_folder)
     # Split the data into training and test sets
     X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
 
@@ -91,7 +67,6 @@ def train_and_predict(bag_file, current_folder, use_pretrained=True):
     X_test = np.array(X_test)
     y_train = np.array([np.array(y) for y in y_train])
     y_test = np.array([np.array(y) for y in y_test])
-
 
     print("Shapes:")
     print("X_train:", X_train.shape)
@@ -106,10 +81,10 @@ def train_and_predict(bag_file, current_folder, use_pretrained=True):
         # Create, compile and train the model
         model = create_slfn_model()
         # Define the ReduceLROnPlateau callback
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=2, min_lr=0.00001, verbose=1)
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=0, min_lr=0.00001, verbose=1)
         
         # Train the model with the callback
-        model.fit(X_train, y_train, batch_size=1, epochs=5, validation_data=(X_test, y_test), verbose=1, callbacks=[reduce_lr])
+        model.fit(X_train, y_train, batch_size=1, epochs=2, validation_data=(X_test, y_test), verbose=1, callbacks=[reduce_lr])
 
         model.save(os.path.join(current_folder, 'slfn_model.h5'))
         print("Model saved to:", os.path.join(current_folder, 'slfn_model.h5'))

@@ -19,10 +19,10 @@ class TrainingLogger(Callback):
 
 def logger_prep():
     # Current timestamp to create a unique folder
-    #current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    #current_folder = f"test_logs/slfn_test/without-scipy/slfn_test__{current_time}"
-    #os.makedirs(current_folder, exist_ok=True)  # Create the directory if it doesn't exist
-    current_folder = os.getcwd()
+    current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    current_folder = f"test_logs/slfn_test/without-scipy/slfn_test__{current_time}"
+    os.makedirs(current_folder, exist_ok=True)  # Create the directory if it doesn't exist
+    #current_folder = os.getcwd()
 
     # Setup logging
     logger = logging.getLogger('LidarTestLogger')
@@ -39,4 +39,4 @@ def logger_prep():
     return current_folder
 
 current_folder = logger_prep()
-train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag', current_folder)
+train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag', current_folder, False)

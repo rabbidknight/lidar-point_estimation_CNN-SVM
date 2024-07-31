@@ -52,21 +52,22 @@ def extract_and_transform_data(bag_file, seq_offset):
     #to be used in the training. Dont mind this.
     synced_poses = []
     synced_poses2 = [] #This is just for catching the total 1D length,
-
     #to be used in the training. Dont mind this.
+
     for seq, cloud in point_cloud_data.items():
         corresponding_pose_seq = seq + seq_offset
-        if corresponding_pose_seq in lidar_transform_data:
+        if corresponding_pose_seq in lidar_transform_data:                
             pose = lidar_transform_data[corresponding_pose_seq]
             if len(cloud) % 3 != 0:
                 excess = len(cloud) % 3
                 cloud = cloud[:-excess]  # Remove the last few points to make the length divisible by 3
-
-            pose_array_for_training = np.array([pose] * len(cloud))  # Clone the pose for each point in the cloud
-            synced_poses2.extend(pose_array_for_training) # Flatten the list of poses, for training
-            synced_point_clouds.append(cloud)  
-            synced_point_clouds2.extend(cloud) # Flatten the list of points, for training
-            synced_poses.append(pose)
+            for point in cloud:
+                if ((point[1]<-75) and (point[1]>-90)):
+                    pose_array_for_training = np.array([pose])  # Clone the pose for each point in the cloud
+                    synced_poses2.extend(pose_array_for_training) # Flatten the list of poses, for training
+                    synced_point_clouds.append(point)  
+                    synced_point_clouds2.extend(point) # Flatten the list of points, for training
+                    synced_poses.append(pose)
         else:
             print(f"Skipping point cloud {seq} because corresponding pose is missing.")
             print("also ending the program because go fix it")
