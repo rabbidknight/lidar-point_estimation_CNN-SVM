@@ -4,101 +4,62 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import logging
 import datetime
+from scipy.spatial import KDTree
+from mpl_toolkits.mplot3d import Axes3D
+from feature_extraction import extract_road_points
 
 def plot3d_point_clouds(transformed_point_clouds, lidar_positions, current_folder):
-    """
-    Plot transformed 3D point clouds, excluding points that are too distant.
+    print('Extracting road points...')
+    temp_clouds = []
+    print("transformed_point_clouds", len(transformed_point_clouds))
+    print("transformed_point_clouds[0]", transformed_point_clouds[0])
+    
+    road_points = extract_road_points(np.array(temp_clouds.append(clouds) for clouds in transformed_point_clouds))
 
-    Args:
-    transformed_point_clouds (list of np.array): List of point clouds after transformation.
-    current_folder (str): Path to the directory where plot should be saved.
-    distance_threshold (float): Maximum allowed distance from the origin for points to be plotted.
-    """
-    '''
-     distance_threshold_xmax = 1200
-    distance_threshold_ymax = 100
-    distance_threshold_zmax = 500
-    distance_threshold_xmin = 550
-    distance_threshold_ymin = -200
-    distance_threshold_zmin = -200
-    '''
     print('Plotting point clouds...')
     fig = plt.figure(figsize=(15, 10))
-    ax = fig.add_subplot(111)
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(road_points[:, 0], road_points[:, 1], road_points[:, 2], alpha=0.5, color='b')
 
-    x_coords = []
-    y_coords = []
-    z_coords = []
-    x_lidar = []
-    y_lidar = []
-    index1=-1
-    for point in transformed_point_clouds:
-        x, y, z = point[0], point[1], point[2]
-        #if (x) <= distance_threshold_xmax and (y) <= distance_threshold_ymax and (z) <= distance_threshold_zmax and x >= distance_threshold_xmin and y >= distance_threshold_ymin and z >= distance_threshold_zmin:
-        x_coords.append(x)
-        y_coords.append(y)
-        #z_coords.append(0)
-        index1+=1
-    ax.scatter(x_coords, y_coords, alpha=0.01, color='b')
+    x_lidar = [pos[0] for pos in lidar_positions]
+    y_lidar = [pos[1] for pos in lidar_positions]
+    z_lidar = [0 for _ in lidar_positions]  # Assuming LiDAR positions are at ground level
+    ax.scatter(x_lidar, y_lidar, z_lidar, color='red', s=10)
 
-    print('Plotting point clouds done')
-
-    print('Plotting lidar...')
-    # Scatter LiDAR positions
-    for pos in lidar_positions:
-        px, py = pos[0], pos[1]
-        x_lidar.append(px)
-        y_lidar.append(py)
-    ax.scatter(x_lidar,y_lidar, color='red', s=10)  # Red color and larger size for LiDAR positions
-
-
-    print('Plotting lidar done')
-
-    ax.set_title('Transformed Point Clouds X-Y-Z Scatter')
+    ax.set_title('Transformed Road Point Clouds')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
-    #ax.set_zlabel('Z')
-    ax.legend(['Transformed Point Clouds'])
+    ax.set_zlabel('Z')
+    ax.legend(['Road Points', 'LiDAR Positions'])
 
-    # Save the plot to the directory
-    plot_filename = os.path.join(current_folder, '3d_transformed_point_clouds_plot.png')
+    plot_filename = os.path.join(current_folder, '3d_transformed_road_point_clouds_plot.png')
     plt.savefig(plot_filename)
-    plt.close()  # Close the plot to free up memory and save the file
-    print(f"3D point cloud plots saved to {plot_filename}")
+    plt.close()
+    print(f"Road point cloud plots saved to {plot_filename}")
 
     # Optionally display the plot
     plt.show()
 
+# Additional code for 2D plots goes here, unchanged
+
 
 def plot2d_lidar_positions(actual, predicted, current_folder):
     plt.figure(figsize=(10, 6))
-    print('Plotting 2D comparison now:')
-    x_pred = []
-    y_pred = []
-    x_actual = []
-    y_actual = []
+    x_actual = [a[0] for a in actual]
+    y_actual = [a[1] for a in actual]
+    plt.scatter(x_actual, y_actual, color='blue', label='Actual')
 
-    print("Plotting the actuals...:", actual)
-    for act in actual:
-        x_actual.append(act[0])
-        y_actual.append(act[1])
-    plt.scatter(x_actual, y_actual, color='blue', label='Actual' if act is actual[0] else "")  # Only label the first point to avoid duplicate labels
-    
-    print("Plotting the predictions...:", predicted)
-    for pred in predicted:
-
-        x_pred.append(pred[0, 0])
-        y_pred.append(pred[0, 1])
-                
-    plt.scatter(x_pred, y_pred, color='red', label='Predicted' if pred is predicted[0] else "")
+    x_pred = [p[0][0] for p in predicted]  # Assuming predictions are array of arrays
+    y_pred = [p[1][0] for p in predicted]
+    plt.scatter(x_pred, y_pred, color='red', label='Predicted')
 
     plt.xlabel('X Coordinate')
     plt.ylabel('Y Coordinate')
     plt.title('2D Lidar Positions')
     plt.legend()
-    print
-    # Save the plot in the unique folder
-    plt.savefig(os.path.join(current_folder, f'lidar_positions.png'))
-    print("PLotting finished. 2D Lidar position plot saved to:", os.path.join(current_folder, f'lidar_positions.png'))
+    plt.savefig(os.path.join(current_folder, '2d_lidar_positions.png'))
+    plt.close()
+    print(f"2D Lidar position plot saved to {os.path.join(current_folder, '2d_lidar_positions.png')}")
+
+    # Optionally display the plot
     plt.show()
-    plt.close()  # Close the plot to free up memory

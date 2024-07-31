@@ -6,7 +6,7 @@ from transform_the_data import quaternion_to_euler, create_transformation_matrix
 
 
 
-def extract_and_transform_data(bag_file, seq_offset):
+def extract_and_transform_data(bag_file, seq_offset=25):
     """Extract data from a ROS bag and apply transformations based on LiDAR poses."""
     bag = rosbag.Bag(bag_file)
     point_cloud_data = {}
@@ -83,10 +83,7 @@ def extract_and_transform_data(bag_file, seq_offset):
     transformed_point_clouds = []
     transformed_poses = []
 
-    index1=-1
     for cloud, pose in zip(synced_point_clouds, synced_poses):
-            index1+=1
-            #print('Current batch transforming:', index1)
 
             #original_cloud_size = len(cloud)  # Number of points in the original cloud
             #transformed_points_count = 0  # This will count how many points are actually processed
@@ -97,19 +94,15 @@ def extract_and_transform_data(bag_file, seq_offset):
             if not np.isnan(pose).any():
                 euler_angles = quaternion_to_euler([pose[6], pose[3], pose[4], pose[5]])  # w x y z 
                 transformation_matrix_lidar = create_transformation_matrix(*euler_angles, pose[0], pose[1], pose[2] ) # Roll, pitch, yaw, tx, ty, tz
-                index2=-1
                 for point in reshaped_cloud:
-                    index2+=1
                     a = np.array([[point[0]], [point[1]], [point[2]], [1]]) # Convert point-cloud xyz to column vector
                     b = np.dot(transformation_matrix_lidar, a) # Apply the transformation
                     transformed_point_clouds.append(b) # Append the transformed point cloud
-                    #print('Transform done for index', index1, 'and point', index2)
-                    #print('Transformed point:', transformed_point_clouds[-1])
-                    #transformed_points_count += 1
 
             else:
                 raise ValueError("Missing pose data for transformation.")
             #print(f"Processed cloud with {original_cloud_size} points, transformed into {transformed_points_count} points")
+
     print('Transformation of point clouds done')
     print('Transforming poses...')
     for pose in synced_poses2:
@@ -119,7 +112,6 @@ def extract_and_transform_data(bag_file, seq_offset):
         pose_vec = np.array([[pose[0]], [pose[1]], [pose[2]], [1]])
         transformed_poses.append(np.dot(transformation_matrix_lidar, pose_vec))
         
-
-    print('ALL DONE')
+    print('ALL data-getting and transforming operations DONE')
 
     return transformed_point_clouds, transformed_poses

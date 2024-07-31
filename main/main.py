@@ -1,42 +1,24 @@
 import os
-import datetime
-import logging
+import glob
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn import logger
-import tensorflow as tf
-from keras.models import Sequential
-from keras.layers import Dense, BatchNormalization, Dropout
-from keras.optimizers import Adam
-from keras.callbacks import Callback
-from train_the_final_data import train_and_predict
+from train_the_final_data import create_slfn_model, train_model, predict, manual_split, extract_and_transform_data
+from plot_the_final_data import plot3d_point_clouds
+def process_directory(directory, model):
+    bag_files = glob.glob(os.path.join(directory, '*.bag'))
+    for bag_file in bag_files:
+        print(f"Processing file: {bag_file}")
+        point_clouds, poses = extract_and_transform_data(bag_file)
+        plot3d_point_clouds(point_clouds, poses, directory)
+        X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
+        # Ensure the data is in the correct numpy array format
+        X_train = np.array(X_train)
+        X_test = np.array(X_test)
+        y_train = np.array([np.array(y) for y in y_train])
+        y_test = np.array([np.array(y) for y in y_test])
+        train_model(model, X_train, y_train, X_test, y_test)
+        predict(model, directory, X_test, y_test)
 
-
-class TrainingLogger(Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        if logs is not None:
-            logger.info(f'Epoch {epoch + 1}: Loss: {logs["loss"]}, Val Loss: {logs["val_loss"]}')
-
-def logger_prep():
-    # Current timestamp to create a unique folder
-    #current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    #current_folder = f"test_logs/slfn_test/without-scipy/slfn_test__{current_time}"
-    #os.makedirs(current_folder, exist_ok=True)  # Create the directory if it doesn't exist
-    current_folder = os.getcwd()
-
-    # Setup logging
-    logger = logging.getLogger('LidarTestLogger')
-    logger.setLevel(logging.INFO)
-
-    # Log file
-    log_filename = os.path.join(current_folder, 'test_log.txt')
-    file_handler = logging.FileHandler(log_filename)
-    file_handler.setLevel(logging.INFO)
-
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-    return current_folder
-
-current_folder = logger_prep()
-train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag', current_folder)
+if __name__ == "__main__":
+    current_directory = os.getcwd()  # or any specific directory containing .bag files
+    model = create_slfn_model()  # Create the model only once
+    process_directory(current_directory, model)
