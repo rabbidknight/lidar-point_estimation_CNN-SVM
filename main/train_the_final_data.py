@@ -17,7 +17,7 @@ from keras.models import load_model
 def create_slfn_model(input_dim):
     model = Sequential([
         #Flatten(), # Flatten the input if it is not already 1D
-        Dense(7, input_dim=input_dim, activation='linear')  # Output layer with 7 units (no activation for regression)
+        Dense(3, input_dim=input_dim, activation='linear')  # Output layer with 7 units (no activation for regression)
     ])
 
     model.compile(optimizer=Adam(learning_rate=0.00015), loss='mean_squared_error')
@@ -42,13 +42,12 @@ def train_and_predict(bag_file, current_folder, use_pretrained):
     seq_offset = 25  # Offset to synchronize point clouds and poses
     point_clouds, poses_flattened, num_of_points = extract_and_transform_data(bag_file, seq_offset)
 
-    # Prepare data batches correctly
-    X, Y = [], []
-    index = 0
-    for n_points in num_of_points:
-        X.append(point_clouds[index:index + n_points])
-        Y.append(poses_flattened[index:index + n_points])
-        index += n_points
+    # Finding the minimum sequence length to truncate all batches to this length
+    min_length = min(len(x) for x in point_clouds)  # Assume X and Y are aligned and have the same lengths
+    
+    # Truncate all sequences to the minimum length
+    X = [x[:min_length] for x in point_clouds]
+    Y = [y[:min_length] for y in poses_flattened]
 
     # Split into training and test sets
     split_index = int(len(X) * 0.8)  # 80% training, 20% testing
@@ -59,7 +58,9 @@ def train_and_predict(bag_file, current_folder, use_pretrained):
             model = load_model(os.path.join(current_folder, 'slfn_model.h5'))
             # Predict on each test batch
             for x, y in zip(X_test, y_test):
-                predict(current_folder, x, y, model)
+                x_flattened = np.concatenate(x).reshape(1, -1)
+                y_flattened = np.concatenate(y).reshape(1, -1)
+                predict(current_folder, x_flattened, y_flattened, model)
     else:
         model = create_slfn_model(X_train[0].size)  # Create the model with the correct input shape
         print("Training the model...")
