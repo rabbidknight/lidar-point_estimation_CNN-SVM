@@ -73,13 +73,13 @@ def plot3d_point_clouds(transformed_point_clouds, lidar_positions, current_folde
 
 def plot2d_lidar_positions(actual, predicted, current_folder):
     plt.figure(figsize=(10, 6))
-    #print('Plotting 2D comparison now:')
+    print('Plotting 2D comparison now:')
     x_pred = []
     y_pred = []
     x_actual = []
     y_actual = []
 
-    #print("Plotting the actuals...:", actual)
+    print("Plotting the actuals...:", actual)
     for act in actual:
         x_actual.append(act[0])
         y_actual.append(act[1])
