@@ -34,11 +34,11 @@ def add_channel_dimension(batch):
     batch_array = np.array([np.array(x) for x in batch])
     return np.expand_dims(batch_array, axis=-1)
 
-def manual_split(data, labels, test_ratio=0.30):
+def manual_split(data, labels, test_ratio=0.0020):
     print("Length of data:", len(data))
     print("Length of labels:", len(labels))
     split_data = int(len(data)* (1 - test_ratio))
-    split_labels = int(len(labels) * (1 - test_ratio))
+    split_labels = int(len(labels) * (1 - 0.3))
     X_train, X_test = data[:split_data], data[split_data:]
     y_train, y_test = labels[:split_labels], labels[split_labels:]
     return X_train, X_test, y_train, y_test
@@ -50,6 +50,7 @@ def predict(current_folder, x, y, model_path):
     # Ensure the input data is correctly shaped
     x = np.array(x).reshape(-1, 3, 1)  # Adjust based on the expected model input
     predictions = model.predict(x)
+    print("Predictions shape:", predictions.shape)
 
     # Optionally visualize predictions
     plot2d_lidar_positions(y, predictions, current_folder)  # Call plotting function
@@ -81,10 +82,10 @@ def train_and_predict(bag_file, current_folder, use_pretrained):
         # Create, compile and train the model
         model = create_slfn_model()
         # Define the ReduceLROnPlateau callback
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=0, min_lr=0.00001, verbose=1)
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.00001, verbose=1)
         
         # Train the model with the callback
-        model.fit(X_train, y_train, batch_size=1, epochs=2, validation_data=(X_test, y_test), verbose=1, callbacks=[reduce_lr])
+        model.fit(X_train, y_train, batch_size=1, epochs=150, validation_data=(X_test, y_test), verbose=1, callbacks=[reduce_lr])
 
         model.save(os.path.join(current_folder, 'slfn_model.h5'))
         print("Model saved to:", os.path.join(current_folder, 'slfn_model.h5'))
