@@ -14,18 +14,13 @@ from plot_the_final_data import plot3d_point_clouds, plot2d_lidar_positions
 from keras.callbacks import ReduceLROnPlateau
 from keras.models import load_model
 
-def create_slfn_model():
+def create_slfn_model(input_dim):
     model = Sequential([
         #Flatten(), # Flatten the input if it is not already 1D
-        Dense(7, activation='linear')  # Output layer with 7 units (no activation for regression)
+        Dense(7, input_dim=input_dim, activation='linear')  # Output layer with 7 units (no activation for regression)
     ])
 
-    model.compile(optimizer=Adam(learning_rate=0.0015), loss='mean_squared_error')
-
-    #LOGGING
-    #for layer in model.layers:
-    #   logger.info(f'Layer {layer.name} - Type: {layer.__class__.__name__}, Output Shape: {layer.output_shape}, Activation: {getattr(layer, "activation", None).__name__ if hasattr(layer, "activation") else "N/A"}')
-    #logger.info("optimizer:", model.optimizer, "loss:", model.loss, "metrics:", model.metrics_names, "learning rate:", model.optimizer.lr)
+    model.compile(optimizer=Adam(learning_rate=0.00015), loss='mean_squared_error')
 
     return model
 
@@ -34,21 +29,10 @@ def add_channel_dimension(batch):
     batch_array = np.array([np.array(x) for x in batch])
     return np.expand_dims(batch_array, axis=-1)
 
-def manual_split(data, labels, test_ratio=0.30):
-    print("Length of data:", len(data))
-    print("Length of labels:", len(labels))
-    split_data = int(len(data)* (1 - test_ratio))
-    split_labels = int(len(labels) * (1 - test_ratio))
-    X_train, X_test = data[:split_data], data[split_data:]
-    y_train, y_test = labels[:split_labels], labels[split_labels:]
-    return X_train, X_test, y_train, y_test
-
 def predict(current_folder, x, y, model_path):
     # Load the pre-trained model
     model = load_model(model_path)
 
-    # Ensure the input data is correctly shaped
-    x = np.array(x).reshape(-1, 3, 1)  # Adjust based on the expected model input
     predictions = model.predict(x)
 
     # Optionally visualize predictions
@@ -56,39 +40,40 @@ def predict(current_folder, x, y, model_path):
 
 def train_and_predict(bag_file, current_folder, use_pretrained):
     seq_offset = 25  # Offset to synchronize point clouds and poses
-    point_clouds, poses = extract_and_transform_data(bag_file, seq_offset)
+    point_clouds, poses_flattened, num_of_points = extract_and_transform_data(bag_file, seq_offset)
 
-    #plot3d_point_clouds(point_clouds, poses, current_folder)
-    # Split the data into training and test sets
-    X_train, X_test, y_train, y_test = manual_split(point_clouds, poses)
+    # Prepare data batches correctly
+    X, Y = [], []
+    index = 0
+    for n_points in num_of_points:
+        X.append(point_clouds[index:index + n_points])
+        Y.append(poses_flattened[index:index + n_points])
+        index += n_points
 
-    # Ensure the data is in the correct numpy array format
-    X_train = np.array(X_train)
-    X_test = np.array(X_test)
-    y_train = np.array([np.array(y) for y in y_train])
-    y_test = np.array([np.array(y) for y in y_test])
-
-    print("Shapes:")
-    print("X_train:", X_train.shape)
-    print("y_train:", y_train.shape)
-    print("X_test:", X_test.shape)
-    print("y_test:", y_test.shape)
-
+    # Split into training and test sets
+    split_index = int(len(X) * 0.8)  # 80% training, 20% testing
+    X_train, X_test = X[:split_index], X[split_index:]
+    y_train, y_test = Y[:split_index], Y[split_index:]
+    
     if use_pretrained:
-        model_path = os.path.join(current_folder, 'slfn_model.h5')
-        predict(current_folder, X_test, y_test, model_path)
+            model = load_model(os.path.join(current_folder, 'slfn_model.h5'))
+            # Predict on each test batch
+            for x, y in zip(X_test, y_test):
+                predict(current_folder, x, y, model)
     else:
-        # Create, compile and train the model
-        model = create_slfn_model()
-        # Define the ReduceLROnPlateau callback
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=0, min_lr=0.00001, verbose=1)
-        
-        # Train the model with the callback
-        model.fit(X_train, y_train, batch_size=1, epochs=2, validation_data=(X_test, y_test), verbose=1, callbacks=[reduce_lr])
+        model = create_slfn_model(X_train[0].size)  # Create the model with the correct input shape
+        print("Training the model...")
+        for x, y in zip(X_train, y_train):
+            # Flatten each batch's input and output as needed by the SLFN
+            x_flattened = np.concatenate(x).reshape(1, -1)  # Flattening and reshaping to ensure 2D input
+            y_flattened = np.concatenate(y).reshape(1, -1)
+            model.fit(x_flattened, y_flattened, batch_size=1, epochs=3, verbose=1)
 
         model.save(os.path.join(current_folder, 'slfn_model.h5'))
         print("Model saved to:", os.path.join(current_folder, 'slfn_model.h5'))
 
-        # After training, predict on the test set
-        predict(current_folder, X_test, y_test, os.path.join(current_folder, 'slfn_model.h5'))
-
+        # Predict on each test batch
+        for x, y in zip(X_test, y_test):
+            x_flattened = np.concatenate(x).reshape(1, -1)  # Flattening input for prediction
+            y_flattened = np.concatenate(y).reshape(1, -1)
+            predict(current_folder, x_flattened, y_flattened, os.path.join(current_folder, 'slfn_model.h5'))

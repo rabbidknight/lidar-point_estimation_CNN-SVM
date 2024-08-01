@@ -15,8 +15,8 @@ def extract_and_transform_data(bag_file, seq_offset):
     # Define byte format for a single point, considering only x, y, z coordinates (each 4 bytes)
     point_format = '<fff'  # little-endian, three floats (x, y, z)
     point_step = 16  # Each point occupies 16 bytes in the data array
-    num_points = []  # Initialize point size, but its an array as it changes per point cloud.
     last_timestamp = None  # Track the last timestamp
+    num_points = [] # Track the current number of points in the point cloud
 
     # Extraction step
     for topic, msg, t in bag.read_messages():
@@ -24,6 +24,7 @@ def extract_and_transform_data(bag_file, seq_offset):
             #if last_timestamp != msg.header.stamp:
                 #last_timestamp = msg.header.stamp
                 current_num_points = msg.width
+                num_points.append(current_num_points) #dont mind this, just for tracking the number of points
                 points = []
                 for i in range(current_num_points):
                     offset = i * point_step
@@ -46,6 +47,7 @@ def extract_and_transform_data(bag_file, seq_offset):
     print("Point clouds extracted:", len(point_cloud_data))
     print("Lidar poses extracted:", len(lidar_transform_data))
 
+
     # Sync and reshape
     synced_point_clouds = []
     synced_point_clouds2 = []   #This is just for catching the total 1D length, 
@@ -62,7 +64,7 @@ def extract_and_transform_data(bag_file, seq_offset):
                 excess = len(cloud) % 3
                 cloud = cloud[:-excess]  # Remove the last few points to make the length divisible by 3
             for point in cloud:
-                if ((point[1]<-75) and (point[1]>-90)):
+                if ((point[1]<-75) and (point[1]>-90)): #thresholding the y values
                     pose_array_for_training = np.array([pose])  # Clone the pose for each point in the cloud
                     synced_poses2.extend(pose_array_for_training) # Flatten the list of poses, for training
                     synced_point_clouds.append(point)  
@@ -121,6 +123,6 @@ def extract_and_transform_data(bag_file, seq_offset):
         transformed_poses.append(np.dot(transformation_matrix_lidar, pose_vec))
         
 
-    print('ALL DONE')
+    print('ALL DONE, now onto training!')
 
-    return transformed_point_clouds, transformed_poses
+    return transformed_point_clouds, transformed_poses, num_points

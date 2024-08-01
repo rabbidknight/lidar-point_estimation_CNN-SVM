@@ -79,13 +79,13 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
     x_actual = []
     y_actual = []
 
-    print("Plotting the actuals...:", actual)
+    print("Plotting the actuals...:")
     for act in actual:
         x_actual.append(act[0])
         y_actual.append(act[1])
     plt.scatter(x_actual, y_actual, color='blue', label='Actual' if act is actual[0] else "")  # Only label the first point to avoid duplicate labels
     
-    print("Plotting the predictions...:", predicted)
+    print("Plotting the predictions...:")
     for pred in predicted:
 
         x_pred.append(pred[0, 0])
