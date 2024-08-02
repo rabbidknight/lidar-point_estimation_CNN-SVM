@@ -31,50 +31,80 @@ def add_channel_dimension(batch):
 
 def predict(current_folder, x, y, model_path):
     # Load the pre-trained model
-    model = load_model(model_path)
+    model = (model_path)
 
     predictions = model.predict(x)
 
+
+    return predictions
     # Optionally visualize predictions
-    plot2d_lidar_positions(y, predictions, current_folder)  # Call plotting function
+    #plot2d_lidar_positions(y, predictions, current_folder)  # Call plotting function
 
 def train_and_predict(bag_file, current_folder, use_pretrained):
     seq_offset = 25  # Offset to synchronize point clouds and poses
     point_clouds, poses_flattened, num_of_points = extract_and_transform_data(bag_file, seq_offset)
 
-    # Finding the minimum sequence length to truncate all batches to this length
-    min_length = min(len(x) for x in point_clouds)  # Assume X and Y are aligned and have the same lengths
-    
-    # Truncate all sequences to the minimum length
-    X = [x[:min_length] for x in point_clouds]
-    Y = [y[:min_length] for y in poses_flattened]
+    print("Point cloud len", len(point_clouds))
+    # Split the point clouds and poses into batches based on num_of_points
+    X = []
+    Y = []
+    index = 0
+    for n in num_of_points:
+        if index + n <= len(point_clouds):
+            X.append(point_clouds[index:index + n])
+            Y.append(poses_flattened[index:index + n])
+        index += n
+    print("Number of batches:", len(X))
+    print("Number of sequences in each batch:", len(X[0]))
+    print("Number of Y sequences in each batch:", len(Y))
 
+
+    # Finding the minimum length across all batches to truncate
+    min_length = min(min(len(x) for x in batch) for batch in X)  # Minimum length of any sequence in all batches
+
+    # Truncate each sequence in every batch to the minimum length
+    X = [[seq[:min_length] for seq in batch] for batch in X]
+    Y = [[seq[:min_length] for seq in batch] for batch in Y]
+
+    print("Number of batches:", len(X))
+    print("Number of sequences in each batch:", len(X[0]))
+    print("Number of Y sequences in each batch:", len(Y))
+
+    """
     # Split into training and test sets
     split_index = int(len(X) * 0.8)  # 80% training, 20% testing
     X_train, X_test = X[:split_index], X[split_index:]
     y_train, y_test = Y[:split_index], Y[split_index:]
+    """
+
+    X_test = X
+    y_test = Y
+    X_train = X
+    y_train = Y
     
     if use_pretrained:
             model = load_model(os.path.join(current_folder, 'slfn_model.h5'))
             # Predict on each test batch
+            predicted = []
             for x, y in zip(X_test, y_test):
-                x_flattened = np.concatenate(x).reshape(1, -1)
-                y_flattened = np.concatenate(y).reshape(1, -1)
-                predict(current_folder, x_flattened, y_flattened, model)
+                x_flattened = np.concatenate(x).reshape(-1, 3)
+                y_flattened = np.concatenate(y).reshape(-1, 3)
+                predicted.append(predict(current_folder, x_flattened, y_flattened, model))
+            plot2d_lidar_positions(y_test, predicted, current_folder)
     else:
         model = create_slfn_model(X_train[0].size)  # Create the model with the correct input shape
         print("Training the model...")
         for x, y in zip(X_train, y_train):
             # Flatten each batch's input and output as needed by the SLFN
-            x_flattened = np.concatenate(x).reshape(1, -1)  # Flattening and reshaping to ensure 2D input
-            y_flattened = np.concatenate(y).reshape(1, -1)
-            model.fit(x_flattened, y_flattened, batch_size=1, epochs=3, verbose=1)
+            x_flattened = np.concatenate(x).reshape(-1, 3)  # Flattening and reshaping to ensure 2D input
+            y_flattened = np.concatenate(y).reshape(-1, 3)
+            model.fit(x_flattened, y_flattened, batch_size=1, epochs=10)
 
         model.save(os.path.join(current_folder, 'slfn_model.h5'))
-        print("Model saved to:", os.path.join(current_folder, 'slfn_model.h5'))
+        print("Model saved to:", os.path.join(current_folder, 'slfn_model'))
 
         # Predict on each test batch
         for x, y in zip(X_test, y_test):
-            x_flattened = np.concatenate(x).reshape(1, -1)  # Flattening input for prediction
-            y_flattened = np.concatenate(y).reshape(1, -1)
-            predict(current_folder, x_flattened, y_flattened, os.path.join(current_folder, 'slfn_model.h5'))
+            x_flattened = np.concatenate(x).reshape(-1, 3)  # Flattening input for prediction
+            y_flattened = np.concatenate(y).reshape(-1, 3)
+            predict(current_folder, x_flattened, y_flattened, model)

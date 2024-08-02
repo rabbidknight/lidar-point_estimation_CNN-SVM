@@ -80,6 +80,8 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
     y_actual = []
 
     print("Plotting the actuals...:")
+
+    print("length of actual:", len(actual))
     for act in actual:
         x_actual.append(act[0])
         y_actual.append(act[1])
@@ -87,9 +89,8 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
     
     print("Plotting the predictions...:")
     for pred in predicted:
-
-        x_pred.append(pred[0, 0])
-        y_pred.append(pred[1, 0])
+        x_pred.append(pred[0])
+        y_pred.append(pred[1])
                 
     plt.scatter(x_pred, y_pred, color='red', label='Predicted' if pred is predicted[0] else "")
 

@@ -18,9 +18,9 @@ class TrainingLogger(Callback):
             logger.info(f'Epoch {epoch + 1}: Loss: {logs["loss"]}, Val Loss: {logs["val_loss"]}')
 
 def logger_prep():
-    # Current timestamp to create a unique folder
-    current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    current_folder = f"test_logs/slfn_test/without-scipy/slfn_test__{current_time}"
+    #Current timestamp to create a unique folder
+    #current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    current_folder = f"test_logs/slfn_test/without-scipy/slfn_test__2024-08-02_00-12-51"
     os.makedirs(current_folder, exist_ok=True)  # Create the directory if it doesn't exist
     #current_folder = os.getcwd()
 
@@ -39,4 +39,4 @@ def logger_prep():
     return current_folder
 
 current_folder = logger_prep()
-train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag', current_folder, False)
+train_and_predict('Issue_ID_4_2024_06_13_07_47_15.bag', current_folder, True)

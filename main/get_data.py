@@ -64,7 +64,7 @@ def extract_and_transform_data(bag_file, seq_offset):
                 excess = len(cloud) % 3
                 cloud = cloud[:-excess]  # Remove the last few points to make the length divisible by 3
             for point in cloud:
-                if ((point[1]<-75) and (point[1]>-90)): #thresholding the y values
+                #if ((point[1]<-75) and (point[1]>-90)): #thresholding the y values
                     pose_array_for_training = np.array([pose])  # Clone the pose for each point in the cloud
                     synced_poses2.extend(pose_array_for_training) # Flatten the list of poses, for training
                     synced_point_clouds.append(point)  
