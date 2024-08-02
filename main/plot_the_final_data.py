@@ -1,4 +1,6 @@
 import os
+import scipy
+from scipy.spatial import distance
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
@@ -103,3 +105,17 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
     print("PLotting finished. 2D Lidar position plot saved to:", os.path.join(current_folder, f'lidar_positions.png'))
     plt.show()
     plt.close()  # Close the plot to free up memory
+
+    # Calculate Euclidean distances and statistical data
+    distances = [distance.euclidean(act[0][0], pred[0][0]) for act, pred in zip(actual, predicted)]
+    mean_distance = np.mean(distances)
+    std_deviation = np.std(distances)
+    max_distance = np.max(distances)
+    min_distance = np.min(distances)
+
+    # Printing statistical results
+    print("Euclidean Distance Statistics:")
+    print(f"Mean Distance: {mean_distance:.2f}")
+    print(f"Standard Deviation: {std_deviation:.2f}")
+    print(f"Max Distance: {max_distance:.2f}")
+    print(f"Min Distance: {min_distance:.2f}")
