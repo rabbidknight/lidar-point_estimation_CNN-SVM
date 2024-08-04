@@ -84,15 +84,19 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
     print("Plotting the actuals...:")
 
     print("length of actual:", len(actual))
+    print("length of actual[0]:", len(actual[0]))
     for act in actual:
-        x_actual.append(act[0])
-        y_actual.append(act[1])
+        for prd in act:
+            x_actual.append(prd[0])
+            y_actual.append(prd[1])
     plt.scatter(x_actual, y_actual, color='blue', label='Actual' if act is actual[0] else "")  # Only label the first point to avoid duplicate labels
     
-    print("Plotting the predictions...:")
+    print("Plotting the predictions...:", len(predicted))
+    print("length of predicted[0]:", len(predicted[0]))
     for pred in predicted:
-        x_pred.append(pred[0])
-        y_pred.append(pred[1])
+        for lsb in pred:
+            x_pred.append(lsb[0])
+            y_pred.append(lsb[1])
                 
     plt.scatter(x_pred, y_pred, color='red', label='Predicted' if pred is predicted[0] else "")
 
@@ -106,16 +110,32 @@ def plot2d_lidar_positions(actual, predicted, current_folder):
     plt.show()
     plt.close()  # Close the plot to free up memory
 
+    x_eucledian = []
+    y_eucledian = []
+    
     # Calculate Euclidean distances and statistical data
-    distances = [distance.euclidean(act[0][0], pred[0][0]) for act, pred in zip(actual, predicted)]
-    mean_distance = np.mean(distances)
-    std_deviation = np.std(distances)
-    max_distance = np.max(distances)
-    min_distance = np.min(distances)
+    for act, pred in zip(actual, predicted):
+        for prd, lsb in zip(act, pred):
+            print("prd:", prd)
+            print("lsb:", lsb)
+            x_eucledian.append(distance.euclidean(prd[0][0], lsb[0]))
+            y_eucledian.append(distance.euclidean(prd[1][0], lsb[1]))
+                
+    mean_distance_x = np.mean(x_eucledian)
+    std_deviation_x = np.std(x_eucledian)
+    max_distance_x = np.max(x_eucledian)
+    min_distance_x = np.min(x_eucledian)
+    mean_distance_y = np.mean(y_eucledian)
+    std_deviation_y = np.std(y_eucledian)
+    max_distance_y = np.max(y_eucledian)
+    min_distance_y = np.min(y_eucledian)
 
-    # Printing statistical results
     print("Euclidean Distance Statistics:")
-    print(f"Mean Distance: {mean_distance:.2f}")
-    print(f"Standard Deviation: {std_deviation:.2f}")
-    print(f"Max Distance: {max_distance:.2f}")
-    print(f"Min Distance: {min_distance:.2f}")
+    print(f"Mean Distance X: {mean_distance_x:.2f}")
+    print(f"Standard Deviation X: {std_deviation_x:.2f}")
+    print(f"Max Distance X: {max_distance_x:.2f}")
+    print(f"Min Distance X: {min_distance_x:.2f}")
+    print(f"Mean Distance Y: {mean_distance_y:.2f}")
+    print(f"Standard Deviation Y: {std_deviation_y:.2f}")
+    print(f"Max Distance Y: {max_distance_y:.2f}")
+    print(f"Min Distance Y: {min_distance_y:.2f}")

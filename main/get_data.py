@@ -56,6 +56,10 @@ def extract_and_transform_data(bag_file, seq_offset):
     synced_poses2 = [] #This is just for catching the total 1D length,
     #to be used in the training. Dont mind this.
 
+
+
+    new_point_cloud_data = []
+    new_pose_data = []
     for seq, cloud in point_cloud_data.items():
         corresponding_pose_seq = seq + seq_offset
         if corresponding_pose_seq in lidar_transform_data:                
@@ -63,6 +67,10 @@ def extract_and_transform_data(bag_file, seq_offset):
             if len(cloud) % 3 != 0:
                 excess = len(cloud) % 3
                 cloud = cloud[:-excess]  # Remove the last few points to make the length divisible by 3
+            new_pose_data.append(pose)
+
+
+
             for point in cloud:
                 #if ((point[1]<1100) and (point[1]>300)): #thresholding the y values
                     pose_array_for_training = np.array([pose])  # Clone the pose for each point in the cloud
@@ -115,7 +123,7 @@ def extract_and_transform_data(bag_file, seq_offset):
             #print(f"Processed cloud with {original_cloud_size} points, transformed into {transformed_points_count} points")
     print('Transformation of point clouds done')
     print('Transforming poses...')
-    for pose in synced_poses2:
+    for pose in new_pose_data:
         # Transform poses with themselves to set new offset
         euler_angles = quaternion_to_euler([pose[6], pose[3], pose[4], pose[5]])  # w x y z 
         transformation_matrix_lidar = create_transformation_matrix(*euler_angles, pose[0], pose[1], pose[2] ) # Roll, pitch, yaw, tx, ty, tz
