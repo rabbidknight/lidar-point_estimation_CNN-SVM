@@ -11,12 +11,13 @@ In the other branches I have tried playing with CNN and RNN models, but couldn't
 --------------------------------
 HOW TO RUN:
 -----------------------------
-Run main.py. That's it.
+Run main.py. Needs a .bag file to read the data from, in the directory. Reads from two ROS1 topics. 
 
-The current best result is in the directory as a png.
 
 
 -------------------------
 EXTRA:
 -------------------------
+The current best result is in the directory as a png.
+
 A short report is in the works...
