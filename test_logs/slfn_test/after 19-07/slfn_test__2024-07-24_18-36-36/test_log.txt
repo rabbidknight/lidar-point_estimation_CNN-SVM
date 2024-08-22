@@ -1,1 +1,0 @@
-2024-07-24 18:38:24,610 - LidarTestLogger - INFO - 3D point cloud plots saved to slfn_test__2024-07-24_18-36-36/3d_transformed_point_clouds_plot.png
