@@ -8,6 +8,7 @@ from scipy.spatial import KDTree
 from mpl_toolkits.mplot3d import Axes3D
 from feature_extraction import extract_road_points
 
+#to plot the 3d graph of point clouds (x,y,z)
 def plot3d_point_clouds(transformed_point_clouds, lidar_positions, current_folder):
     print('Extracting road points...')
     temp_clouds = []
@@ -40,9 +41,8 @@ def plot3d_point_clouds(transformed_point_clouds, lidar_positions, current_folde
     # Optionally display the plot
     plt.show()
 
-# Additional code for 2D plots goes here, unchanged
 
-
+#to plot 2d graph of the actual and predicted lidar poses
 def plot2d_lidar_positions(actual, predicted, current_folder):
     plt.figure(figsize=(10, 6))
     x_actual = [a[0] for a in actual]
