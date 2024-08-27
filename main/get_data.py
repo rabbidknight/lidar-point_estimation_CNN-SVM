@@ -48,12 +48,10 @@ def extract_and_transform_data(bag_file, seq_offset=25):
 
     # Sync and reshape
     synced_point_clouds = []
-    synced_point_clouds2 = []   #This is just for catching the total 1D length, 
-    #to be used in the training. Dont mind this.
+    synced_point_clouds2 = []   #This is just for catching the total 1D length, to be used in the training (input_shape). Dont mind this.
     synced_poses = []
-    synced_poses2 = [] #This is just for catching the total 1D length,
-
-    #to be used in the training. Dont mind this.
+    synced_poses2 = [] #This is just for catching the total 1D length, to be used in the training (input_shape). Dont mind this.
+    
     for seq, cloud in point_cloud_data.items():
         corresponding_pose_seq = seq + seq_offset
         if corresponding_pose_seq in lidar_transform_data:
