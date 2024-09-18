@@ -2,7 +2,7 @@
 ABOUT:
 ----------------------------
 
-Lidar point estimation on point-cloud data using SLFM.
+Lidar point estimation on point-cloud data using SLFN.
 
 My project of my internship at ADASTEC Inc. , June-August 2024.
 
