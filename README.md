@@ -20,4 +20,4 @@ EXTRA:
 -------------------------
 The current best result is in the directory as a png.
 
-A short report is in the works...
+
